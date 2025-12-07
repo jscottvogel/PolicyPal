@@ -6,7 +6,7 @@ export function Sidebar({ onSignOut, activeTab, setActiveTab }) {
     return (
         <aside className="sidebar">
             <div className="sidebar-header">
-                <h2>PolicyPal</h2>
+                <img src="/PolicyPal.png" alt="PolicyPal Logo" className="sidebar-logo" />
             </div>
 
             <nav className="sidebar-nav">
