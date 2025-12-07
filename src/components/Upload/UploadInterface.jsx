@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
 import { StorageManager } from '@aws-amplify/ui-react-storage';
 import { list, remove } from 'aws-amplify/storage';
+import { generateClient } from 'aws-amplify/data';
 import '@aws-amplify/ui-react-storage/styles.css';
+
+const client = generateClient();
 
 export function UploadInterface() {
     const [files, setFiles] = useState([]);
     const [fetching, setFetching] = useState(true);
+    const [syncing, setSyncing] = useState(false);
 
     const fetchFiles = async () => {
         setFetching(true);
@@ -37,11 +41,37 @@ export function UploadInterface() {
         }
     };
 
+    const handleSync = async () => {
+        setSyncing(true);
+        try {
+            const { data, errors } = await client.mutations.sync();
+            if (errors) throw errors[0];
+            alert(`Sync triggered: ${data.message} `);
+        } catch (e) {
+            console.error('Sync failed:', e);
+            alert('Failed to trigger sync. Check logs.');
+        } finally {
+            setSyncing(false);
+        }
+    };
+
     return (
         <div className="upload-interface">
             <div className="upload-header">
-                <h2>Policy Management</h2>
-                <p>Upload new policy documents (PDF) here. These will be indexed for the chatbot.</p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                        <h2>Policy Management</h2>
+                        <p>Upload new policy documents (PDF) here. These will be indexed for the chatbot.</p>
+                    </div>
+                    <button
+                        onClick={handleSync}
+                        className="chat-send-btn"
+                        style={{ padding: '0.5rem 1rem', height: 'fit-content' }}
+                        disabled={syncing}
+                    >
+                        {syncing ? 'Syncing...' : 'Sync Knowledge Base'}
+                    </button>
+                </div>
             </div>
 
             <div className="upload-container">

@@ -1,5 +1,6 @@
 import { type ClientSchema, a, defineData } from '@aws-amplify/backend';
 import { chatFunction } from '../functions/chat/resource';
+import { syncFunction } from '../functions/sync/resource';
 
 const schema = a.schema({
   ChatResponse: a.customType({
@@ -7,11 +8,22 @@ const schema = a.schema({
     citations: a.string().array(),
   }),
 
+  SyncResponse: a.customType({
+    success: a.boolean(),
+    message: a.string(),
+  }),
+
   chat: a
     .query()
     .arguments({ message: a.string() })
     .returns(a.ref('ChatResponse'))
     .handler(a.handler.function(chatFunction))
+    .authorization((allow) => [allow.authenticated()]),
+
+  sync: a
+    .mutation()
+    .returns(a.ref('SyncResponse'))
+    .handler(a.handler.function(syncFunction))
     .authorization((allow) => [allow.authenticated()]),
 });
 
