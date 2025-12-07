@@ -5,6 +5,18 @@ import { BedrockRuntimeClient, InvokeModelCommand } from "@aws-sdk/client-bedroc
 const agentClient = new BedrockAgentRuntimeClient({ region: process.env.AWS_REGION });
 const bedrockClient = new BedrockRuntimeClient({ region: process.env.AWS_REGION });
 
+/**
+ * Bedrock Chat Handler
+ * 
+ * This Lambda function handles chat interactions with AWS Bedrock.
+ * behavior:
+ * 1. Checks for a configured Knowledge Base ID (RAG).
+ * 2. If present, uses `RetrieveAndGenerate` to query the KB and answer from context.
+ * 3. If missing, falls back to `InvokeModel` for a standard (non-contextual) chat with Claude.
+ * 
+ * @param event - AppSync invocation event containing the user's message.
+ * @returns { answer: string, citations: string[] }
+ */
 export const handler: Schema["chat"]["functionHandler"] = async (event) => {
     const { message } = event.arguments;
     console.log("Receive Chat Request:", { message });
@@ -18,7 +30,8 @@ export const handler: Schema["chat"]["functionHandler"] = async (event) => {
     console.log("Configuration:", { kbId, modelId, region: process.env.AWS_REGION });
 
     try {
-        // If KB is configured, use RAG
+        // --- Path 1: RAG (Retrieval Augmented Generation) ---
+        // If a Knowledge Base is linked, we use the Agents Runtime to retrieve context.
         if (kbId && kbId !== 'REPLACE_ME_WITH_KB_ID') {
             console.log("Path: RAG (retrieveAndGenerate)");
             const command = new RetrieveAndGenerateCommand({
