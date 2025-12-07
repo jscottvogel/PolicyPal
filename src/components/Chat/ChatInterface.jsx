@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
+import { generateClient } from 'aws-amplify/data';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
+
+const client = generateClient();
 
 export function ChatInterface() {
     const [messages, setMessages] = useState([
@@ -22,16 +25,27 @@ export function ChatInterface() {
         setMessages(prev => [...prev, userMsg]);
         setLoading(true);
 
-        // Mock response for now (AWS Bedrock hook later)
-        setTimeout(() => {
+        try {
+            // Call Amplify Backend
+            const { data, errors } = await client.queries.chat({ message: text });
+
+            if (errors) throw errors[0];
+
             const botMsg = {
-                text: `I received your query: "${text}". \n\nI need to be connected to Bedrock to give a real answer.`,
+                text: data?.answer || "No response received.",
                 isUser: false,
-                citations: []
+                citations: data?.citations?.map(c => ({ title: 'Source', location: { uri: '#' }, content: c })) || []
             };
             setMessages(prev => [...prev, botMsg]);
+        } catch (err) {
+            console.error(err);
+            setMessages(prev => [...prev, {
+                text: "Sorry, something went wrong communicating with the server.",
+                isUser: false
+            }]);
+        } finally {
             setLoading(false);
-        }, 1000);
+        }
     };
 
     return (
