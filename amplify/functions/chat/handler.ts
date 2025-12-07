@@ -48,7 +48,7 @@ export const handler: Schema["chat"]["functionHandler"] = async (event) => {
             });
 
             const response = await agentClient.send(command);
-            console.log("Bedrock RAG Response Received");
+            console.log("Bedrock RAG Response (Full):", JSON.stringify(response, null, 2));
 
             const answer = response.output?.text || "No answer found.";
             // Map RAG citations to a cleaner format for the frontend

@@ -24,9 +24,11 @@
 }
 
 .sidebar-logo {
-  max-width: 180px;
+  max-width: 140px;
   height: auto;
   object-fit: contain;
+  mix-blend-mode: multiply;
+  opacity: 0.9;
 }
 
 .sidebar-nav {
