@@ -69,7 +69,7 @@ export function UploadInterface() {
                         style={{ padding: '0.5rem 1rem', height: 'fit-content' }}
                         disabled={syncing}
                     >
-                        {syncing ? 'Syncing...' : 'Sync Knowledge Base'}
+                        {syncing ? 'Syncing...' : 'Sync'}
                     </button>
                 </div>
             </div>

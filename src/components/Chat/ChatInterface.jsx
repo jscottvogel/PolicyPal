@@ -31,10 +31,12 @@ export function ChatInterface() {
 
             if (errors) throw errors[0];
 
+            console.log("Chat Response:", data);
+
             const botMsg = {
                 text: data?.answer || "No response received.",
                 isUser: false,
-                citations: data?.citations?.map(c => ({ title: 'Source', location: { uri: '#' }, content: c })) || []
+                citations: data?.citations || []
             };
             setMessages(prev => [...prev, botMsg]);
         } catch (err) {

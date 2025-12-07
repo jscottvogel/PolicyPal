@@ -230,6 +230,9 @@
   padding: var(--space-8);
   max-width: 800px;
   margin: 0 auto;
+  height: 100%;
+  width: 100%;
+  overflow-y: auto;
 }
 
 .upload-header {

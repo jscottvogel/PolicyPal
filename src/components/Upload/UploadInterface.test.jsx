@@ -96,7 +96,7 @@ describe('UploadInterface', () => {
 
     it('triggers sync job when button clicked', async () => {
         render(<UploadInterface />);
-        const syncBtn = screen.getByText('Sync Knowledge Base');
+        const syncBtn = screen.getByRole('button', { name: 'Sync' });
 
         fireEvent.click(syncBtn);
 
