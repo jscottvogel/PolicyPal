@@ -20,7 +20,7 @@
 .sidebar-header {
   margin: 0 0 var(--space-6) 0;
   display: flex;
-  justify-content: flex-start;
+  justify-content: center;
 }
 
 .sidebar-logo {
