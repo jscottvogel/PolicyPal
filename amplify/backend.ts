@@ -12,9 +12,16 @@ const backend = defineBackend({
 });
 
 import { PolicyStatement, Effect } from 'aws-cdk-lib/aws-iam';
+import { CfnFunction } from 'aws-cdk-lib/aws-lambda';
 
 backend.chatFunction.resources.lambda.addToRolePolicy(new PolicyStatement({
   effect: Effect.ALLOW,
   actions: ['bedrock:*'],
   resources: ['*'],
 }));
+
+// Enable X-Ray Tracing
+const cfnFunction = backend.chatFunction.resources.lambda.node.defaultChild as CfnFunction;
+cfnFunction.tracingConfig = {
+  mode: 'Active',
+};
