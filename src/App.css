@@ -307,3 +307,30 @@
   color: white;
   border-color: var(--status-error);
 }
+
+/* Citation Links */
+.citation-link {
+  background: none;
+  border: none;
+  color: #646cff;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 0.9em;
+  padding: 0;
+  margin: 0;
+  display: inline;
+}
+
+.citation-link:hover {
+  color: #535bf2;
+}
+
+.citation-snippet {
+  font-size: 0.85em;
+  color: inherit;
+  opacity: 0.8;
+  margin: 4px 0 0 0;
+  font-style: italic;
+  padding-left: 10px;
+  border-left: 2px solid currentColor;
+}

@@ -3,6 +3,18 @@ import { BedrockAgentClient, StartIngestionJobCommand } from "@aws-sdk/client-be
 
 const client = new BedrockAgentClient({ region: process.env.AWS_REGION });
 
+/**
+ * Bedrock Knowledge Base Sync Handler
+ * 
+ * Triggers an Ingestion Job to sync the underlying Data Source (S3) with the Vector Index.
+ * Should be called after uploading/deleting policies.
+ * 
+ * Env Vars:
+ * - KNOWLEDGE_BASE_ID
+ * - DATA_SOURCE_ID
+ * 
+ * @returns { success: boolean, message: string }
+ */
 export const handler: Schema["sync"]["functionHandler"] = async (event) => {
     const kbId = process.env.KNOWLEDGE_BASE_ID;
     const dsId = process.env.DATA_SOURCE_ID;
@@ -28,7 +40,7 @@ export const handler: Schema["sync"]["functionHandler"] = async (event) => {
 
         return {
             success: true,
-            message: `Sync started. Status: ${response.ingestionJob?.status}`
+            message: `Sync started. Job ID: ${response.ingestionJob?.ingestionJobId} (Status: ${response.ingestionJob?.status})`
         };
     } catch (error) {
         console.error("Sync Failed:", error);

@@ -28,6 +28,19 @@ vi.mock('@aws-amplify/ui-react-storage', () => ({
 window.confirm = vi.fn(() => true);
 window.alert = vi.fn();
 
+// Mock Data Client (for Sync)
+const dataMocks = vi.hoisted(() => ({
+    sync: vi.fn(),
+}));
+
+vi.mock('aws-amplify/data', () => ({
+    generateClient: () => ({
+        mutations: {
+            sync: dataMocks.sync
+        }
+    })
+}));
+
 describe('UploadInterface', () => {
 
     beforeEach(() => {
@@ -40,6 +53,7 @@ describe('UploadInterface', () => {
             ]
         });
         storageMocks.remove.mockResolvedValue({});
+        dataMocks.sync.mockResolvedValue({ data: { message: 'Sync started' } });
     });
 
     it('renders and lists files', async () => {
@@ -77,6 +91,20 @@ describe('UploadInterface', () => {
         // Should refresh list after delete
         await waitFor(() => {
             expect(storageMocks.list).toHaveBeenCalledTimes(2);
+        });
+    });
+
+    it('triggers sync job when button clicked', async () => {
+        render(<UploadInterface />);
+        const syncBtn = screen.getByText('Sync Knowledge Base');
+
+        fireEvent.click(syncBtn);
+
+        expect(screen.getByText('Syncing...')).toBeInTheDocument();
+
+        await waitFor(() => {
+            expect(dataMocks.sync).toHaveBeenCalled();
+            expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('Sync triggered'));
         });
     });
 });

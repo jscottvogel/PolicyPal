@@ -31,6 +31,6 @@ chatCfn.tracingConfig = {
 // Permissions for Sync
 backend.syncFunction.resources.lambda.addToRolePolicy(new PolicyStatement({
   effect: Effect.ALLOW,
-  actions: ['bedrock:StartIngestionJob'],
+  actions: ['bedrock:*'],
   resources: ['*'],
 }));

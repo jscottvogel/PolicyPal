@@ -51,11 +51,23 @@ export const handler: Schema["chat"]["functionHandler"] = async (event) => {
             console.log("Bedrock RAG Response Received");
 
             const answer = response.output?.text || "No answer found.";
-            const citations = response.citations?.map(c =>
-                c.retrievedReferences?.map(r => r.content?.text).join(' ') || ''
-            ) || [];
+            // Map RAG citations to a cleaner format for the frontend
+            const citations = response.citations?.flatMap(c =>
+                c.retrievedReferences?.map(r => {
+                    const text = r.content?.text || '';
+                    const uri = r.location?.s3Location?.uri || '';
 
-            return { answer, citations: citations.filter(c => c) };
+                    // Extract the S3 Key from the URI (s3://bucket-name/path/to/file.pdf)
+                    // We need the relative path (e.g., 'public/handbook.pdf') to generate a signed URL.
+                    const path = uri.startsWith('s3://')
+                        ? uri.split('/').slice(3).join('/')
+                        : '';
+
+                    return { text, path };
+                }) || []
+            ).filter(c => c.text) || [];
+
+            return { answer, citations };
 
         } else {
             // Fallback to standard chat (no RAG)

@@ -3,9 +3,14 @@ import { chatFunction } from '../functions/chat/resource';
 import { syncFunction } from '../functions/sync/resource';
 
 const schema = a.schema({
+  Citation: a.customType({
+    text: a.string(),
+    path: a.string(),
+  }),
+
   ChatResponse: a.customType({
     answer: a.string(),
-    citations: a.string().array(),
+    citations: a.ref('Citation').array(),
   }),
 
   SyncResponse: a.customType({

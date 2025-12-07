@@ -34,7 +34,7 @@ describe('ChatInterface', () => {
         mocks.chat.mockResolvedValue({
             data: {
                 answer: 'Here is the answer.',
-                citations: ['Citation 1']
+                citations: [{ text: 'Citation text', path: 'doc.pdf' }]
             }
         });
 
@@ -58,7 +58,7 @@ describe('ChatInterface', () => {
         });
 
         // Check citations
-        expect(screen.getByText('Source')).toBeInTheDocument();
+        expect(screen.getByText('Source 1')).toBeInTheDocument();
     });
 
     it('handles API errors', async () => {
