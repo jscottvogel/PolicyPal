@@ -1,25 +1,26 @@
 import { useAuth } from '../../context/AuthContext';
 
-export function Sidebar({ onSignOut, activeTab, setActiveTab }) {
+export function Sidebar({ onSignOut, activeTab, setActiveTab, isOpen, onClose }) {
     const { user, isAdmin } = useAuth();
 
     return (
-        <aside className="sidebar">
+        <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
             <div className="sidebar-header">
                 <img src="/PolicyPal.png" alt="PolicyPal Logo" className="sidebar-logo" />
+                <button className="mobile-close-btn" onClick={onClose}>×</button>
             </div>
 
             <nav className="sidebar-nav">
                 <button
                     className={`nav-item ${activeTab === 'chat' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('chat')}
+                    onClick={() => { setActiveTab('chat'); onClose?.(); }}
                 >
                     Chat
                 </button>
                 {isAdmin && (
                     <button
                         className={`nav-item ${activeTab === 'upload' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('upload')}
+                        onClick={() => { setActiveTab('upload'); onClose?.(); }}
                     >
                         Manage Policies
                     </button>

@@ -9,14 +9,29 @@ import './App.css';
 function AppContent({ signOut }) {
   const { isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState('chat');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
     <div className="app-layout">
+      <div className="mobile-header">
+        <button className="mobile-menu-btn" onClick={() => setIsSidebarOpen(true)}>
+          <span className="hamburger-icon">☰</span>
+        </button>
+        <img src="/PolicyPal.png" alt="PolicyPal Logo" className="mobile-logo" />
+      </div>
+
       <Sidebar
         onSignOut={signOut}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
       />
+
+      {isSidebarOpen && (
+        <div className="sidebar-overlay" onClick={() => setIsSidebarOpen(false)} />
+      )}
+
       <main className="main-content">
         {activeTab === 'chat' && <ChatInterface />}
         {activeTab === 'upload' && isAdmin && <UploadInterface />}
