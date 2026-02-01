@@ -75,16 +75,26 @@ export const handler: Schema["sync"]["functionHandler"] = async (event) => {
                 // 4. Chunk Text
                 const chunks = splitText(text);
 
-                // 5. Generate Embeddings for chunks
+                // 5. Generate Embeddings for chunks (Parallel)
                 console.log(`Generating embeddings for ${chunks.length} chunks...`);
-                for (const chunk of chunks) {
-                    const embedding = await generateEmbedding(chunk);
-                    vectorDocs.push({
-                        id: randomUUID(),
-                        path: file.Key,
-                        text: chunk,
-                        embedding: embedding
-                    });
+
+                // Process in batches of 5 to avoid throttling
+                const BATCH_SIZE = 5;
+                for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
+                    const batch = chunks.slice(i, i + BATCH_SIZE);
+                    await Promise.all(batch.map(async (chunk) => {
+                        try {
+                            const embedding = await generateEmbedding(chunk);
+                            vectorDocs.push({
+                                id: randomUUID(),
+                                path: file.Key as string,
+                                text: chunk,
+                                embedding: embedding
+                            });
+                        } catch (err) {
+                            console.error("Embedding generation failed for chunk:", err);
+                        }
+                    }));
                 }
             } catch (err: any) {
                 console.error(`Error processing file ${file.Key}:`, err);

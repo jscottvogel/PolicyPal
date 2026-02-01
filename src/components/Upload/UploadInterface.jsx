@@ -63,14 +63,32 @@ export function UploadInterface() {
                         <h2>Policy Management</h2>
                         <p>Upload new policy documents (PDF) here. These will be indexed for the chatbot.</p>
                     </div>
-                    <button
-                        onClick={handleSync}
-                        className="chat-send-btn"
-                        style={{ padding: '0.5rem 1rem', height: 'fit-content' }}
-                        disabled={syncing}
-                    >
-                        {syncing ? 'Syncing...' : 'Sync'}
-                    </button>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
+                        <button
+                            onClick={handleSync}
+                            className="chat-send-btn"
+                            style={{
+                                padding: '0.5rem 1rem',
+                                height: 'fit-content',
+                                opacity: syncing ? 0.7 : 1,
+                                cursor: syncing ? 'not-allowed' : 'pointer',
+                                minWidth: '100px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '0.5rem'
+                            }}
+                            disabled={syncing}
+                        >
+                            {syncing && <span className="loader"></span>}
+                            {syncing ? 'Indexing...' : 'Sync Policies'}
+                        </button>
+                        {syncing && (
+                            <small style={{ color: '#666', fontSize: '0.8rem' }}>
+                                This may take a few minutes...
+                            </small>
+                        )}
+                    </div>
                 </div>
             </div>
 

@@ -5,6 +5,7 @@ export const syncFunction = defineFunction({
     entry: './handler.ts',
     environment: {
         // KNOWLEDGE_BASE_ID and DATA_SOURCE_ID removed. Using manual S3 indexing.
+        // Trigger redeploy for timeout update.
     },
-    timeoutSeconds: 60,
+    timeoutSeconds: 900,
 });
