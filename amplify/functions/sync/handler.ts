@@ -121,32 +121,30 @@ export const handler: Schema["sync"]["functionHandler"] = async (event) => {
                         }
                     }));
                 }
+
+                // CHECKPOINT: Save index after each successful file processing
+                // This prevents losing all progress if the function times out on a later file.
+                console.log(`Checkpoint: Saving index with ${outputDocs.length} chunks...`);
+                const putCmd = new PutObjectCommand({
+                    Bucket: BUCKET_NAME,
+                    Key: 'vectors/index.json',
+                    Body: JSON.stringify(outputDocs),
+                    ContentType: 'application/json'
+                });
+                await s3.send(putCmd);
+                processedCount++;
+                console.log(`Saved checkpoint for ${file.Key}.`);
+
             } catch (err: any) {
                 console.error(`Error processing file ${file.Key}:`, err);
+                // Don't re-throw, so we can try the next file (or save what we have)
             }
         }
 
-        // 4. Save Updated Index
-        if (processedCount > 0 || existingIndex.length === 0) {
-            console.log(`Saving updated index with ${outputDocs.length} chunks to vectors/index.json`);
-            const putCmd = new PutObjectCommand({
-                Bucket: BUCKET_NAME,
-                Key: 'vectors/index.json',
-                Body: JSON.stringify(outputDocs),
-                ContentType: 'application/json'
-            });
-            await s3.send(putCmd);
-
-            return {
-                success: true,
-                message: `Sync complete. Added ${processedCount} new files.`
-            };
-        } else {
-            return {
-                success: true,
-                message: "Sync complete. No new files to index."
-            };
-        }
+        return {
+            success: true,
+            message: `Sync complete. Added ${processedCount} new files.`
+        };
 
     } catch (error) {
         console.error("Sync Failed:", error);
