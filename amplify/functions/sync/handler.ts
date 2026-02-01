@@ -2,7 +2,7 @@ import type { Schema } from '../../data/resource';
 import { S3Client, ListObjectsV2Command, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { generateEmbedding, splitText, VectorDoc } from '../common/vector-utils';
 // @ts-ignore
-import pdf from 'pdf-parse';
+import pdf from 'pdf-parse/lib/pdf-parse.js';
 import { randomUUID } from 'crypto';
 
 // Polyfill DOMMatrix for pdf-parse if it is missing (Lambda runtime environment)
