@@ -31,9 +31,13 @@ export const handler: Schema["getIndexedFiles"]["functionHandler"] = async () =>
             const body = await streamToString(res.Body);
             const index = JSON.parse(body);
 
-            // Extract unique paths
-            const paths = new Set(index.map((doc: any) => doc.path));
-            return Array.from(paths) as string[];
+            // Extract unique paths of completed files (marked with file_marker)
+            const completedPaths = new Set(
+                index
+                    .filter((doc: any) => doc.metadata?.type === 'file_marker')
+                    .map((doc: any) => doc.path)
+            );
+            return Array.from(completedPaths) as string[];
         } catch (err: any) {
             if (err.name === 'NoSuchKey') {
                 return [];

@@ -59,7 +59,13 @@ export const handler: Schema["sync"]["functionHandler"] = async (event) => {
         }
 
         // 3. Identify Files to Process
-        const indexedPaths = new Set(existingIndex.map(d => d.path));
+        // Check for "File Marker" to confirm completion.
+        // A file is "indexed" only if it has a completion marker.
+        const indexedPaths = new Set(
+            existingIndex
+                .filter(d => d.metadata?.type === 'file_marker')
+                .map(d => d.path)
+        );
 
         const outputDocs: VectorDoc[] = [...existingIndex];
         let processedCount = 0;
@@ -75,28 +81,32 @@ export const handler: Schema["sync"]["functionHandler"] = async (event) => {
             console.log(`Targeting specific file: ${targetPath}`);
             targetFiles = targetFiles.filter(f => f.Key === targetPath);
 
-            // If specific file is requested, we ALWAYS process it (re-index),
-            // so we remove old chunks for this file from outputDocs first.
-            const initialDocCount = outputDocs.length;
-            const newOutputDocs = outputDocs.filter(d => d.path !== targetPath);
-            if (newOutputDocs.length < initialDocCount) {
-                console.log(`Removing ${initialDocCount - newOutputDocs.length} existing chunks for re-indexing ${targetPath}`);
-                outputDocs.length = 0; // Clear array
-                outputDocs.push(...newOutputDocs);
-            }
+            // Re-indexing: Force processing even if marked complete
+            indexedPaths.delete(targetPath);
         }
 
         for (const file of targetFiles) {
             if (!file.Key || file.Key.endsWith('/')) continue;
 
-            // Incrementality Check (Skip ONLY if not explicitly requested)
+            // Skip ONLY if we have a completion marker and it wasn't explicitly requested
             // @ts-ignore
             if (!event.arguments?.filePath && indexedPaths.has(file.Key)) {
-                console.log(`Skipping already indexed file: ${file.Key}`);
+                console.log(`Skipping fully indexed file: ${file.Key}`);
                 continue;
             }
 
             console.log(`Processing file: ${file.Key}`);
+
+            // CLEANUP: Remove any existing chunks (partial or old) for this file from the output index
+            // This ensures we don't have duplicates or ghosts from failed runs.
+            const initialLength = outputDocs.length;
+            const keptDocs = outputDocs.filter(d => d.path !== file.Key);
+            outputDocs.length = 0;
+            outputDocs.push(...keptDocs);
+            if (outputDocs.length < initialLength) {
+                console.log(`Cleaned up ${initialLength - outputDocs.length} old/partial chunks for ${file.Key}`);
+            }
+
             processedCount++;
 
             try {
@@ -127,7 +137,7 @@ export const handler: Schema["sync"]["functionHandler"] = async (event) => {
                 // Generate Embeddings (Parallel Batches)
                 console.log(`Generating embeddings for ${chunks.length} chunks...`);
 
-                const BATCH_SIZE = 3; // Reduced batch size for stability
+                const BATCH_SIZE = 3;
                 for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
                     const batch = chunks.slice(i, i + BATCH_SIZE);
                     await Promise.all(batch.map(async (chunk) => {
@@ -144,37 +154,43 @@ export const handler: Schema["sync"]["functionHandler"] = async (event) => {
                         }
                     }));
 
-                    // Small delay to prevent rate limiting / cpu starvation
-                    await new Promise(resolve => setTimeout(resolve, 100));
+                    // Small delay
+                    await new Promise(resolve => setTimeout(resolve, 50));
                 }
 
-                // CHECKPOINT: Save index after each successful file processing
+                // Add Completion Marker
+                outputDocs.push({
+                    id: randomUUID(),
+                    path: file.Key as string,
+                    text: "", // Empty for marker
+                    embedding: [], // Empty for marker
+                    metadata: { type: 'file_marker', timestamp: new Date().toISOString() }
+                });
+
+                // CHECKPOINT: Save index after completion
                 console.log(`Checkpoint: Saving index with ${outputDocs.length} chunks...`);
 
-                // Optimize save: only save if we actually added chunks
-                if (outputDocs.length > existingIndex.length) {
-                    const putCmd = new PutObjectCommand({
-                        Bucket: BUCKET_NAME,
-                        Key: 'vectors/index.json',
-                        Body: JSON.stringify(outputDocs),
-                        ContentType: 'application/json'
-                    });
-                    await s3.send(putCmd);
-                    processedCount++;
-                    console.log(`Saved checkpoint for ${file.Key}.`);
-                } else {
-                    console.log("No new chunks to save.");
-                }
+                const putCmd = new PutObjectCommand({
+                    Bucket: BUCKET_NAME,
+                    Key: 'vectors/index.json',
+                    Body: JSON.stringify(outputDocs),
+                    ContentType: 'application/json'
+                });
+                await s3.send(putCmd);
+                console.log(`Saved checkpoint for ${file.Key}.`);
 
             } catch (err: any) {
                 console.error(`Error processing file ${file.Key}:`, err);
             }
         }
 
-        return {
-            success: true,
-            message: `Sync complete. Added ${processedCount} new files.`
-        };
+        if (processedCount > 0) {
+            return {
+                success: true,
+                message: `Sync complete. Processed ${processedCount} files.`
+            };
+        }
+        return { success: true, message: "Sync complete. No modifications." };
 
     } catch (error) {
         console.error("Sync Failed:", error);

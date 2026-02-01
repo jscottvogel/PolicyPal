@@ -7,6 +7,7 @@ export interface VectorDoc {
     path: string;
     text: string;
     embedding: number[];
+    metadata?: any;
 }
 
 export async function generateEmbedding(text: string): Promise<number[]> {
