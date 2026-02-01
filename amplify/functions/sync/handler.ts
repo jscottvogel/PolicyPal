@@ -1,7 +1,7 @@
 import type { Schema } from '../../data/resource';
 import { S3Client, ListObjectsV2Command, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { generateEmbedding, splitText, VectorDoc } from '../common/vector-utils';
-import pdf from 'pdf-parse';
+import { PDFParse } from 'pdf-parse';
 import { randomUUID } from 'crypto';
 
 const s3 = new S3Client({ region: process.env.AWS_REGION });
@@ -56,8 +56,9 @@ export const handler: Schema["sync"]["functionHandler"] = async (event) => {
                 // 3. Extract Text
                 let text = "";
                 if (file.Key.toLowerCase().endsWith('.pdf')) {
-                    const pdfData = await pdf(fileBuffer);
-                    text = pdfData.text;
+                    const parser = new PDFParse({ data: fileBuffer });
+                    const textResult = await parser.getText();
+                    text = textResult.text;
                 } else {
                     // Assume text-based
                     text = fileBuffer.toString('utf-8');
