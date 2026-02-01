@@ -58,22 +58,45 @@ export const handler: Schema["sync"]["functionHandler"] = async (event) => {
             return { success: true, message: "No files found." };
         }
 
-        // 3. Identify New Files
+        // 3. Identify Files to Process
         const indexedPaths = new Set(existingIndex.map(d => d.path));
 
         const outputDocs: VectorDoc[] = [...existingIndex];
         let processedCount = 0;
 
-        for (const file of listRes.Contents) {
+        // Determine target files
+        let targetFiles = listRes.Contents || [];
+
+        // If a specific file path is requested, filter just that one
+        // @ts-ignore
+        if (event.arguments?.filePath) {
+            // @ts-ignore
+            const targetPath = event.arguments.filePath;
+            console.log(`Targeting specific file: ${targetPath}`);
+            targetFiles = targetFiles.filter(f => f.Key === targetPath);
+
+            // If specific file is requested, we ALWAYS process it (re-index),
+            // so we remove old chunks for this file from outputDocs first.
+            const initialDocCount = outputDocs.length;
+            const newOutputDocs = outputDocs.filter(d => d.path !== targetPath);
+            if (newOutputDocs.length < initialDocCount) {
+                console.log(`Removing ${initialDocCount - newOutputDocs.length} existing chunks for re-indexing ${targetPath}`);
+                outputDocs.length = 0; // Clear array
+                outputDocs.push(...newOutputDocs);
+            }
+        }
+
+        for (const file of targetFiles) {
             if (!file.Key || file.Key.endsWith('/')) continue;
 
-            // Incrementality Check
-            if (indexedPaths.has(file.Key)) {
+            // Incrementality Check (Skip ONLY if not explicitly requested)
+            // @ts-ignore
+            if (!event.arguments?.filePath && indexedPaths.has(file.Key)) {
                 console.log(`Skipping already indexed file: ${file.Key}`);
                 continue;
             }
 
-            console.log(`Processing NEW file: ${file.Key}`);
+            console.log(`Processing file: ${file.Key}`);
             processedCount++;
 
             try {

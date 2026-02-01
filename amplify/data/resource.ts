@@ -1,6 +1,7 @@
 import { type ClientSchema, a, defineData } from '@aws-amplify/backend';
 import { chatFunction } from '../functions/chat/resource';
 import { syncFunction } from '../functions/sync/resource';
+import { checkIndexFunction } from '../functions/check-index/resource';
 
 const schema = a.schema({
   Citation: a.customType({
@@ -27,8 +28,15 @@ const schema = a.schema({
 
   sync: a
     .mutation()
+    .arguments({ filePath: a.string() })
     .returns(a.ref('SyncResponse'))
     .handler(a.handler.function(syncFunction))
+    .authorization((allow) => [allow.authenticated()]),
+
+  getIndexedFiles: a
+    .query()
+    .returns(a.string().array())
+    .handler(a.handler.function(checkIndexFunction))
     .authorization((allow) => [allow.authenticated()]),
 });
 
