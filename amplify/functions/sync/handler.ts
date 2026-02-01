@@ -7,6 +7,19 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
+// Polyfill DOMMatrix for PDF parsing libraries
+if (!global.DOMMatrix) {
+    // @ts-ignore
+    global.DOMMatrix = class DOMMatrix {
+        constructor() { return this; }
+        setMatrixValue() { }
+        multiply() { return this; }
+        translate() { return this; }
+        scale() { return this; }
+        rotate() { return this; }
+    };
+}
+
 const s3 = new S3Client({ region: process.env.AWS_REGION });
 const BUCKET_NAME = process.env.BUCKET_NAME;
 
