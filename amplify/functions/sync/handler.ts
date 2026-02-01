@@ -125,8 +125,6 @@ export const handler: Schema["sync"]["functionHandler"] = async (event) => {
 
                 // Extract Text
                 let text = "";
-                // Extract Text
-                let text = "";
                 if (file.Key.toLowerCase().endsWith('.pdf')) {
                     console.log(`Parsing PDF with PDF.js: ${file.Key}`);
 
@@ -161,8 +159,7 @@ export const handler: Schema["sync"]["functionHandler"] = async (event) => {
                     );
 
                     try {
-                        // @ts-ignore
-                        const result = await Promise.race([pdfPromise, timeoutPromise]);
+                        const result = await Promise.race([pdfPromise, timeoutPromise]) as { text: string };
                         text = result.text;
                         console.log(`Parsed PDF successfully: ${text.length} chars`);
                     } catch (pErr) {
