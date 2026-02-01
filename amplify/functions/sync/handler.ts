@@ -25,14 +25,29 @@ const streamToBuffer = async (stream: any): Promise<Buffer> => {
 };
 
 export const handler: Schema["sync"]["functionHandler"] = async (event) => {
-    console.log("Starting Manual Sync...");
+    console.log("Starting Incremental Sync...");
 
     if (!BUCKET_NAME) {
         return { success: false, message: "BUCKET_NAME env var missing." };
     }
 
     try {
-        // 1. List all files in 'public/'
+        // 1. Load Existing Index
+        let existingIndex: VectorDoc[] = [];
+        try {
+            const getIndex = new GetObjectCommand({
+                Bucket: BUCKET_NAME,
+                Key: 'vectors/index.json'
+            });
+            const getIndexRes = await s3.send(getIndex);
+            const body = await streamToBuffer(getIndexRes.Body);
+            existingIndex = JSON.parse(body.toString('utf-8'));
+            console.log(`Loaded existing index with ${existingIndex.length} chunks.`);
+        } catch (e) {
+            console.log("No existing index found or error loading it, starting fresh.");
+        }
+
+        // 2. List all files in 'public/'
         const listCmd = new ListObjectsV2Command({
             Bucket: BUCKET_NAME,
             Prefix: 'public/'
@@ -40,18 +55,29 @@ export const handler: Schema["sync"]["functionHandler"] = async (event) => {
         const listRes = await s3.send(listCmd);
 
         if (!listRes.Contents || listRes.Contents.length === 0) {
-            return { success: true, message: "No files found to sync." };
+            return { success: true, message: "No files found." };
         }
 
-        const vectorDocs: VectorDoc[] = [];
+        // 3. Identify New Files
+        const indexedPaths = new Set(existingIndex.map(d => d.path));
+
+        const outputDocs: VectorDoc[] = [...existingIndex];
+        let processedCount = 0;
 
         for (const file of listRes.Contents) {
             if (!file.Key || file.Key.endsWith('/')) continue;
 
-            console.log(`Processing file: ${file.Key}`);
+            // Incrementality Check
+            if (indexedPaths.has(file.Key)) {
+                console.log(`Skipping already indexed file: ${file.Key}`);
+                continue;
+            }
+
+            console.log(`Processing NEW file: ${file.Key}`);
+            processedCount++;
 
             try {
-                // 2. Download File
+                // Download File
                 const getCmd = new GetObjectCommand({
                     Bucket: BUCKET_NAME,
                     Key: file.Key
@@ -59,7 +85,7 @@ export const handler: Schema["sync"]["functionHandler"] = async (event) => {
                 const getRes = await s3.send(getCmd);
                 const fileBuffer = await streamToBuffer(getRes.Body);
 
-                // 3. Extract Text
+                // Extract Text
                 let text = "";
                 if (file.Key.toLowerCase().endsWith('.pdf')) {
                     // pdf-parse v1.1.1 API
@@ -72,20 +98,19 @@ export const handler: Schema["sync"]["functionHandler"] = async (event) => {
 
                 if (!text.trim()) continue;
 
-                // 4. Chunk Text
+                // Chunk Text
                 const chunks = splitText(text);
 
-                // 5. Generate Embeddings for chunks (Parallel)
+                // Generate Embeddings (Parallel Batches)
                 console.log(`Generating embeddings for ${chunks.length} chunks...`);
 
-                // Process in batches of 5 to avoid throttling
                 const BATCH_SIZE = 5;
                 for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
                     const batch = chunks.slice(i, i + BATCH_SIZE);
                     await Promise.all(batch.map(async (chunk) => {
                         try {
                             const embedding = await generateEmbedding(chunk);
-                            vectorDocs.push({
+                            outputDocs.push({
                                 id: randomUUID(),
                                 path: file.Key as string,
                                 text: chunk,
@@ -98,24 +123,30 @@ export const handler: Schema["sync"]["functionHandler"] = async (event) => {
                 }
             } catch (err: any) {
                 console.error(`Error processing file ${file.Key}:`, err);
-                console.error(`Error details:`, err.message, err.stack);
             }
         }
 
-        // 6. Save Index to S3
-        console.log(`Saving index with ${vectorDocs.length} chunks to vectors/index.json`);
-        const putCmd = new PutObjectCommand({
-            Bucket: BUCKET_NAME,
-            Key: 'vectors/index.json',
-            Body: JSON.stringify(vectorDocs),
-            ContentType: 'application/json'
-        });
-        await s3.send(putCmd);
+        // 4. Save Updated Index
+        if (processedCount > 0 || existingIndex.length === 0) {
+            console.log(`Saving updated index with ${outputDocs.length} chunks to vectors/index.json`);
+            const putCmd = new PutObjectCommand({
+                Bucket: BUCKET_NAME,
+                Key: 'vectors/index.json',
+                Body: JSON.stringify(outputDocs),
+                ContentType: 'application/json'
+            });
+            await s3.send(putCmd);
 
-        return {
-            success: true,
-            message: `Sync complete. Indexed ${vectorDocs.length} chunks.`
-        };
+            return {
+                success: true,
+                message: `Sync complete. Added ${processedCount} new files.`
+            };
+        } else {
+            return {
+                success: true,
+                message: "Sync complete. No new files to index."
+            };
+        }
 
     } catch (error) {
         console.error("Sync Failed:", error);
