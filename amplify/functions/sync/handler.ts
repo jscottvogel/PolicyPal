@@ -1,22 +1,11 @@
 import type { Schema } from '../../data/resource';
 import { S3Client, ListObjectsV2Command, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { generateEmbedding, splitText, VectorDoc } from '../common/vector-utils';
-import { createRequire } from 'module';
 import { randomUUID } from 'crypto';
-
-const require = createRequire(import.meta.url);
-const { getDocument } = require('pdfjs-dist/legacy/build/pdf.js');
-// Force esbuild to bundle the worker by importing it
-import 'pdfjs-dist/legacy/build/pdf.worker.js';
-
-// Polyfill Node.js environment for PDF.js if needed (e.g. worker)
-// We handle worker loading in the getDocument call usually, or rely on defaults.
-// For Text Extraction, we disable font face and canvas requirements locally.
-
-if (!global.DOMMatrix) {
-    // @ts-ignore
-    global.DOMMatrix = class DOMMatrix { };
-}
+import { PdfDataParser } from 'pdf-data-parser';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 
 const s3 = new S3Client({ region: process.env.AWS_REGION });
 const BUCKET_NAME = process.env.BUCKET_NAME;
@@ -32,7 +21,7 @@ const streamToBuffer = async (stream: any): Promise<Buffer> => {
 };
 
 export const handler: Schema["sync"]["functionHandler"] = async (event) => {
-    console.log("Starting Incremental Sync (PDFJS Fixed)...");
+    console.log("Starting Incremental Sync (pdf-data-parser)...");
 
     if (!BUCKET_NAME) {
         return { success: false, message: "BUCKET_NAME env var missing." };
@@ -128,45 +117,31 @@ export const handler: Schema["sync"]["functionHandler"] = async (event) => {
                 // Extract Text
                 let text = "";
                 if (file.Key.toLowerCase().endsWith('.pdf')) {
-                    console.log(`Parsing PDF with PDF.js: ${file.Key}`);
+                    console.log(`Parsing PDF with pdf-data-parser: ${file.Key}`);
 
-                    const pdfPromise = (async () => {
-                        // Convert Buffer to Uint8Array which PDF.js expects
-                        const data = new Uint8Array(fileBuffer);
-
-                        const loadingTask = getDocument({
-                            data,
-                            useSystemFonts: true,
-                            disableFontFace: true,
-                        });
-
-                        const pdf = await loadingTask.promise;
-                        let fullText = "";
-
-                        // Limit pages to avoid timeout on massive docs
-                        // For "policies", usually 50 pages is plenty.
-                        const maxPages = Math.min(pdf.numPages, 100);
-
-                        for (let i = 1; i <= maxPages; i++) {
-                            const page = await pdf.getPage(i);
-                            const content = await page.getTextContent();
-                            const strings = content.items.map((item: any) => item.str);
-                            fullText += strings.join(" ") + "\n";
-                        }
-                        return { text: fullText };
-                    })();
-
-                    const timeoutPromise = new Promise((_, reject) =>
-                        setTimeout(() => reject(new Error("PDF Parsing timeout (60s)")), 60000)
-                    );
+                    const tmpPath = path.join(os.tmpdir(), randomUUID() + '.pdf');
+                    fs.writeFileSync(tmpPath, fileBuffer);
 
                     try {
-                        const result = await Promise.race([pdfPromise, timeoutPromise]) as { text: string };
-                        text = result.text;
+                        const parser = new PdfDataParser({ url: tmpPath });
+                        // Safety timeout for parser
+                        const parsePromise = parser.parse();
+                        const timeoutPromise = new Promise((_, reject) =>
+                            setTimeout(() => reject(new Error("PDF Parsing timeout (60s)")), 60000)
+                        );
+
+                        // @ts-ignore
+                        const rows = await Promise.race([parsePromise, timeoutPromise]);
+
+                        // Flatten rows (array of strings)
+                        // @ts-ignore
+                        text = rows.map((r: any) => r.join(" ")).join("\n");
                         console.log(`Parsed PDF successfully: ${text.length} chars`);
                     } catch (pErr) {
                         console.error(`PDF Parsing failed for ${file.Key}:`, pErr);
                         continue; // Skip this file
+                    } finally {
+                        try { fs.unlinkSync(tmpPath); } catch { }
                     }
                 } else {
 
