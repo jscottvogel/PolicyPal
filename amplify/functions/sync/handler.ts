@@ -1,52 +1,110 @@
 import type { Schema } from '../../data/resource';
-import { BedrockAgentClient, StartIngestionJobCommand } from "@aws-sdk/client-bedrock-agent";
+import { S3Client, ListObjectsV2Command, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { generateEmbedding, splitText, VectorDoc } from '../common/vector-utils';
+import pdf from 'pdf-parse';
+import { randomUUID } from 'crypto';
 
-const client = new BedrockAgentClient({ region: process.env.AWS_REGION });
+const s3 = new S3Client({ region: process.env.AWS_REGION });
+const BUCKET_NAME = process.env.BUCKET_NAME;
 
-/**
- * Bedrock Knowledge Base Sync Handler
- * 
- * Triggers an Ingestion Job to sync the underlying Data Source (S3) with the Vector Index.
- * Should be called after uploading/deleting policies.
- * 
- * Env Vars:
- * - KNOWLEDGE_BASE_ID
- * - DATA_SOURCE_ID
- * 
- * @returns { success: boolean, message: string }
- */
+// Helper to convert stream to buffer
+const streamToBuffer = async (stream: any): Promise<Buffer> => {
+    return new Promise((resolve, reject) => {
+        const chunks: any[] = [];
+        stream.on('data', (chunk: any) => chunks.push(chunk));
+        stream.on('error', reject);
+        stream.on('end', () => resolve(Buffer.concat(chunks)));
+    });
+};
+
 export const handler: Schema["sync"]["functionHandler"] = async (event) => {
-    const kbId = process.env.KNOWLEDGE_BASE_ID;
-    const dsId = process.env.DATA_SOURCE_ID;
+    console.log("Starting Manual Sync...");
 
-    console.log("Starting Sync:", { kbId, dsId });
-
-    if (!kbId || !dsId || dsId === 'REPLACE_ME_WITH_DS_ID') {
-        return {
-            success: false,
-            message: "Missing Knowledge Base or Data Source ID configuration."
-        };
+    if (!BUCKET_NAME) {
+        return { success: false, message: "BUCKET_NAME env var missing." };
     }
 
     try {
-        const command = new StartIngestionJobCommand({
-            knowledgeBaseId: kbId,
-            dataSourceId: dsId,
-            description: "Triggered by PolicyPal Admin"
+        // 1. List all files in 'public/'
+        // Note: This is simplified. In production, handle pagination (NextContinuationToken).
+        const listCmd = new ListObjectsV2Command({
+            Bucket: BUCKET_NAME,
+            Prefix: 'public/'
         });
+        const listRes = await s3.send(listCmd);
 
-        const response = await client.send(command);
-        console.log("Sync Started:", response.ingestionJob);
+        if (!listRes.Contents || listRes.Contents.length === 0) {
+            return { success: true, message: "No files found to sync." };
+        }
+
+        const vectorDocs: VectorDoc[] = [];
+
+        for (const file of listRes.Contents) {
+            if (!file.Key || file.Key.endsWith('/')) continue;
+
+            console.log(`Processing file: ${file.Key}`);
+
+            try {
+                // 2. Download File
+                const getCmd = new GetObjectCommand({
+                    Bucket: BUCKET_NAME,
+                    Key: file.Key
+                });
+                const getRes = await s3.send(getCmd);
+                const fileBuffer = await streamToBuffer(getRes.Body);
+
+                // 3. Extract Text
+                let text = "";
+                if (file.Key.toLowerCase().endsWith('.pdf')) {
+                    const pdfData = await pdf(fileBuffer);
+                    text = pdfData.text;
+                } else {
+                    // Assume text-based
+                    text = fileBuffer.toString('utf-8');
+                }
+
+                if (!text.trim()) continue;
+
+                // 4. Chunk Text
+                const chunks = splitText(text);
+
+                // 5. Generate Embeddings for chunks
+                console.log(`Generating embeddings for ${chunks.length} chunks...`);
+                for (const chunk of chunks) {
+                    const embedding = await generateEmbedding(chunk);
+                    vectorDocs.push({
+                        id: randomUUID(),
+                        path: file.Key,
+                        text: chunk,
+                        embedding: embedding
+                    });
+                }
+            } catch (err) {
+                console.error(`Error processing file ${file.Key}:`, err);
+                // Continue with other files
+            }
+        }
+
+        // 6. Save Index to S3
+        console.log(`Saving index with ${vectorDocs.length} chunks to vectors/index.json`);
+        const putCmd = new PutObjectCommand({
+            Bucket: BUCKET_NAME,
+            Key: 'vectors/index.json',
+            Body: JSON.stringify(vectorDocs),
+            ContentType: 'application/json'
+        });
+        await s3.send(putCmd);
 
         return {
             success: true,
-            message: `Sync started. Job ID: ${response.ingestionJob?.ingestionJobId} (Status: ${response.ingestionJob?.status})`
+            message: `Sync complete. Indexed ${vectorDocs.length} chunks.`
         };
+
     } catch (error) {
         console.error("Sync Failed:", error);
         return {
             success: false,
-            message: "Failed to start sync job. Check logs."
+            message: "Failed to sync. Check logs."
         };
     }
 };
