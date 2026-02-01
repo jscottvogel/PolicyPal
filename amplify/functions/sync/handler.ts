@@ -1,7 +1,8 @@
 import type { Schema } from '../../data/resource';
 import { S3Client, ListObjectsV2Command, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { generateEmbedding, splitText, VectorDoc } from '../common/vector-utils';
-import { PDFParse } from 'pdf-parse';
+// @ts-ignore
+import pdf from 'pdf-parse';
 import { randomUUID } from 'crypto';
 
 const s3 = new S3Client({ region: process.env.AWS_REGION });
@@ -26,7 +27,6 @@ export const handler: Schema["sync"]["functionHandler"] = async (event) => {
 
     try {
         // 1. List all files in 'public/'
-        // Note: This is simplified. In production, handle pagination (NextContinuationToken).
         const listCmd = new ListObjectsV2Command({
             Bucket: BUCKET_NAME,
             Prefix: 'public/'
@@ -56,9 +56,9 @@ export const handler: Schema["sync"]["functionHandler"] = async (event) => {
                 // 3. Extract Text
                 let text = "";
                 if (file.Key.toLowerCase().endsWith('.pdf')) {
-                    const parser = new PDFParse({ data: fileBuffer });
-                    const textResult = await parser.getText();
-                    text = textResult.text;
+                    // pdf-parse v1.1.1 API
+                    const pdfData = await pdf(fileBuffer);
+                    text = pdfData.text;
                 } else {
                     // Assume text-based
                     text = fileBuffer.toString('utf-8');

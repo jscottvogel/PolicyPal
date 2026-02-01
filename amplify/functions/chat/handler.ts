@@ -76,8 +76,8 @@ export const handler: Schema["chat"]["functionHandler"] = async (event) => {
             const topDocs = scoredDocs.slice(0, 5);
             console.log("Top matches scores:", topDocs.map(d => d.score));
 
-            // Filter by threshold (optional, e.g. > 0.3)
-            const qualifiedDocs = topDocs.filter(d => d.score > 0.3);
+            // Filter by threshold (lowered to ensure matches)
+            const qualifiedDocs = topDocs.filter(d => d.score > 0.15);
 
             if (qualifiedDocs.length > 0) {
                 context = qualifiedDocs.map(d => d.text).join("\n\n---\n\n");
@@ -96,6 +96,10 @@ export const handler: Schema["chat"]["functionHandler"] = async (event) => {
             }
         } else {
             console.log("No index available, proceeding without context.");
+            return {
+                answer: "The policy search index is empty. Please upload policies to the 'public/' S3 folder and run the 'Sync' command in the Admin dashboard to generate the index.",
+                citations: []
+            };
         }
 
         // 3. Call LLM
@@ -109,41 +113,6 @@ Do not hallucinate.
 Context:
 ${context}
 `;
-
-        const userMessage = {
-            role: "user",
-            content: [{ type: "text", text: message }]
-        };
-
-        const input = {
-            modelId,
-            system: [{ text: systemPrompt }], // Claude 3 system prompt structure
-            messages: [userMessage],
-            inferenceConfig: {
-                maxTokens: 1000,
-                temperature: 0.1
-            }
-        };
-
-        // Note: InvokeModel command body format differs for Claude 3 vs 2.
-        // Claude 3 uses the new Messages API format in the body.
-        // However, Bedrock `invokeModel` expects a specific JSON structure for Claude 3.
-        // Ref: https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-anthropic-claude-messages.html
-
-        const invReq = {
-            modelId,
-            contentType: "application/json",
-            accept: "application/json",
-            body: JSON.stringify({
-                anthropic_version: "bedrock-2023-05-31",
-                max_tokens: 1000,
-                system: systemPrompt,
-                messages: [{ role: "user", content: message }] // Simplified message for Claude 3
-            })
-        };
-
-        // Wait, the body structure above with 'system' at top level is for Messages API.
-        // Let's ensure we use the correct body for Bedrock Runtime InvokeModel for Claude 3.
 
         const bedrockBody = {
             anthropic_version: "bedrock-2023-05-31",
