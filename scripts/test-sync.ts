@@ -27,8 +27,9 @@ async function runTest() {
     else console.log("   ✅ Memory configuration is optimal.");
 
     // 2. Upload Test PDF (or use existing)
-    // We utilize the text file we just uploaded for verification
-    const TEST_FILE_KEY = "public/test-doc.txt";
+    // Testing the exact filename the user reported issues with.
+    // Note: Since this is a dummy file (text content), pdf-parse will likely fail fast, which is a valid test of the error handling.
+    const TEST_FILE_KEY = "public/Data Retention and Disposal Policy.pdf";
     console.log(`\n2. Checking Target File: ${TEST_FILE_KEY}`);
 
     try {

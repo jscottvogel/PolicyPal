@@ -1,11 +1,16 @@
 import type { Schema } from '../../data/resource';
 import { S3Client, ListObjectsV2Command, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { generateEmbedding, splitText, VectorDoc } from '../common/vector-utils';
-// @ts-ignore
-import pdf from 'pdf-parse/lib/pdf-parse.js';
+import { createRequire } from 'module';
 import { randomUUID } from 'crypto';
 
-// Polyfill DOMMatrix for pdf-parse if it is missing (Lambda runtime environment)
+const require = createRequire(import.meta.url);
+const { getDocument } = require('pdfjs-dist/legacy/build/pdf.js');
+
+// Polyfill Node.js environment for PDF.js if needed (e.g. worker)
+// We handle worker loading in the getDocument call usually, or rely on defaults.
+// For Text Extraction, we disable font face and canvas requirements locally.
+
 if (!global.DOMMatrix) {
     // @ts-ignore
     global.DOMMatrix = class DOMMatrix { };
@@ -120,11 +125,52 @@ export const handler: Schema["sync"]["functionHandler"] = async (event) => {
 
                 // Extract Text
                 let text = "";
+                // Extract Text
+                let text = "";
                 if (file.Key.toLowerCase().endsWith('.pdf')) {
-                    // pdf-parse v1.1.1 API
-                    const pdfData = await pdf(fileBuffer);
-                    text = pdfData.text;
+                    console.log(`Parsing PDF with PDF.js: ${file.Key}`);
+
+                    const pdfPromise = (async () => {
+                        // Convert Buffer to Uint8Array which PDF.js expects
+                        const data = new Uint8Array(fileBuffer);
+
+                        const loadingTask = getDocument({
+                            data,
+                            useSystemFonts: true,
+                            disableFontFace: true,
+                        });
+
+                        const pdf = await loadingTask.promise;
+                        let fullText = "";
+
+                        // Limit pages to avoid timeout on massive docs
+                        // For "policies", usually 50 pages is plenty.
+                        const maxPages = Math.min(pdf.numPages, 100);
+
+                        for (let i = 1; i <= maxPages; i++) {
+                            const page = await pdf.getPage(i);
+                            const content = await page.getTextContent();
+                            const strings = content.items.map((item: any) => item.str);
+                            fullText += strings.join(" ") + "\n";
+                        }
+                        return { text: fullText };
+                    })();
+
+                    const timeoutPromise = new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error("PDF Parsing timeout (60s)")), 60000)
+                    );
+
+                    try {
+                        // @ts-ignore
+                        const result = await Promise.race([pdfPromise, timeoutPromise]);
+                        text = result.text;
+                        console.log(`Parsed PDF successfully: ${text.length} chars`);
+                    } catch (pErr) {
+                        console.error(`PDF Parsing failed for ${file.Key}:`, pErr);
+                        continue; // Skip this file
+                    }
                 } else {
+
                     // Assume text-based
                     text = fileBuffer.toString('utf-8');
                 }
