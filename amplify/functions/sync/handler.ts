@@ -127,7 +127,7 @@ export const handler: Schema["sync"]["functionHandler"] = async (event) => {
                 // Generate Embeddings (Parallel Batches)
                 console.log(`Generating embeddings for ${chunks.length} chunks...`);
 
-                const BATCH_SIZE = 5;
+                const BATCH_SIZE = 3; // Reduced batch size for stability
                 for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
                     const batch = chunks.slice(i, i + BATCH_SIZE);
                     await Promise.all(batch.map(async (chunk) => {
@@ -143,24 +143,31 @@ export const handler: Schema["sync"]["functionHandler"] = async (event) => {
                             console.error("Embedding generation failed for chunk:", err);
                         }
                     }));
+
+                    // Small delay to prevent rate limiting / cpu starvation
+                    await new Promise(resolve => setTimeout(resolve, 100));
                 }
 
                 // CHECKPOINT: Save index after each successful file processing
-                // This prevents losing all progress if the function times out on a later file.
                 console.log(`Checkpoint: Saving index with ${outputDocs.length} chunks...`);
-                const putCmd = new PutObjectCommand({
-                    Bucket: BUCKET_NAME,
-                    Key: 'vectors/index.json',
-                    Body: JSON.stringify(outputDocs),
-                    ContentType: 'application/json'
-                });
-                await s3.send(putCmd);
-                processedCount++;
-                console.log(`Saved checkpoint for ${file.Key}.`);
+
+                // Optimize save: only save if we actually added chunks
+                if (outputDocs.length > existingIndex.length) {
+                    const putCmd = new PutObjectCommand({
+                        Bucket: BUCKET_NAME,
+                        Key: 'vectors/index.json',
+                        Body: JSON.stringify(outputDocs),
+                        ContentType: 'application/json'
+                    });
+                    await s3.send(putCmd);
+                    processedCount++;
+                    console.log(`Saved checkpoint for ${file.Key}.`);
+                } else {
+                    console.log("No new chunks to save.");
+                }
 
             } catch (err: any) {
                 console.error(`Error processing file ${file.Key}:`, err);
-                // Don't re-throw, so we can try the next file (or save what we have)
             }
         }
 

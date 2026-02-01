@@ -8,4 +8,5 @@ export const syncFunction = defineFunction({
         // Trigger redeploy for timeout update.
     },
     timeoutSeconds: 900,
+    memoryMB: 1024,
 });
