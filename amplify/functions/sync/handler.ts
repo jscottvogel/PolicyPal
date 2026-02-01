@@ -6,6 +6,8 @@ import { randomUUID } from 'crypto';
 
 const require = createRequire(import.meta.url);
 const { getDocument } = require('pdfjs-dist/legacy/build/pdf.js');
+// Force esbuild to bundle the worker by importing it
+import 'pdfjs-dist/legacy/build/pdf.worker.js';
 
 // Polyfill Node.js environment for PDF.js if needed (e.g. worker)
 // We handle worker loading in the getDocument call usually, or rely on defaults.
@@ -30,7 +32,7 @@ const streamToBuffer = async (stream: any): Promise<Buffer> => {
 };
 
 export const handler: Schema["sync"]["functionHandler"] = async (event) => {
-    console.log("Starting Incremental Sync...");
+    console.log("Starting Incremental Sync (PDFJS Fixed)...");
 
     if (!BUCKET_NAME) {
         return { success: false, message: "BUCKET_NAME env var missing." };
