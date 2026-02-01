@@ -5,6 +5,12 @@ import { generateEmbedding, splitText, VectorDoc } from '../common/vector-utils'
 import pdf from 'pdf-parse';
 import { randomUUID } from 'crypto';
 
+// Polyfill DOMMatrix for pdf-parse if it is missing (Lambda runtime environment)
+if (!global.DOMMatrix) {
+    // @ts-ignore
+    global.DOMMatrix = class DOMMatrix { };
+}
+
 const s3 = new S3Client({ region: process.env.AWS_REGION });
 const BUCKET_NAME = process.env.BUCKET_NAME;
 
@@ -80,9 +86,9 @@ export const handler: Schema["sync"]["functionHandler"] = async (event) => {
                         embedding: embedding
                     });
                 }
-            } catch (err) {
+            } catch (err: any) {
                 console.error(`Error processing file ${file.Key}:`, err);
-                // Continue with other files
+                console.error(`Error details:`, err.message, err.stack);
             }
         }
 
