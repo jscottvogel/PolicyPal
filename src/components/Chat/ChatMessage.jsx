@@ -20,34 +20,42 @@ export function ChatMessage({ message, isUser, citations = [] }) {
             window.open(urlInfo.url, '_blank');
         } catch (e) {
             console.error("Error opening citation:", e);
-            alert("Could not open source file.");
         }
     };
+
+    // Replace [n] with superscript-like markers if we wanted to be fancy, 
+    // but ReactMarkdown handles the text. We can customize the components though.
 
     return (
         <div className={`chat-message ${isUser ? 'user' : 'bot'}`}>
             <div className="message-content">
-                <ReactMarkdown>{message}</ReactMarkdown>
+                <ReactMarkdown
+                    components={{
+                        p: ({ node, ...props }) => {
+                            // Optionally intercept text to style [1]
+                            return <p {...props} />;
+                        }
+                    }}
+                >
+                    {message}
+                </ReactMarkdown>
             </div>
             {!isUser && citations && citations.length > 0 && (
-                <div className="citations">
-                    <h4>Sources:</h4>
-                    <ul>
+                <div className="citations-container">
+                    <div className="citations-header">Sources</div>
+                    <div className="citations-list">
                         {citations.map((cite, idx) => (
-                            <li key={idx}>
+                            <div key={idx} className="citation-item">
                                 <button
-                                    className="citation-link"
+                                    className="citation-tag"
                                     onClick={() => handleCitationClick(cite.path)}
-                                    title={cite.text}
+                                    title={cite.path.replace('public/', '')}
                                 >
-                                    Source {idx + 1}
+                                    [{idx + 1}] {cite.path.replace('public/', '')}
                                 </button>
-                                <p className="citation-snippet">
-                                    {cite.text ? cite.text.substring(0, 150) + "..." : "No text snippet available."}
-                                </p>
-                            </li>
+                            </div>
                         ))}
-                    </ul>
+                    </div>
                 </div>
             )}
         </div>

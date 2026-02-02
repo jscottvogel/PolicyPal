@@ -113,19 +113,22 @@ export const handler: Schema["chat"]["functionHandler"] = async (event) => {
             const qualifiedDocs = topDocs.filter(d => d.score > 0.15);
 
             if (qualifiedDocs.length > 0) {
-                context = qualifiedDocs.map(d => d.text).join("\n\n---\n\n");
-                // Deduplicate citations by path
-                const uniquePaths = new Set();
-                citations = qualifiedDocs.reduce((acc: any[], doc) => {
-                    if (!uniquePaths.has(doc.path)) {
-                        uniquePaths.add(doc.path);
-                        acc.push({
-                            text: doc.text.substring(0, 100) + "...", // Snippet
-                            path: doc.path
-                        });
-                    }
-                    return acc;
-                }, []);
+                // Deduplicate citations by path and assign indices
+                const uniquePaths = Array.from(new Set(qualifiedDocs.map(d => d.path)));
+
+                citations = uniquePaths.map((path, idx) => {
+                    const firstMatch = qualifiedDocs.find(d => d.path === path);
+                    return {
+                        text: firstMatch?.text.substring(0, 150) + "...",
+                        path: path
+                    };
+                });
+
+                // Format context with source labels
+                context = qualifiedDocs.map(d => {
+                    const sourceIdx = uniquePaths.indexOf(d.path) + 1;
+                    return `[Source ${sourceIdx}] (${d.path.replace('public/', '')}):\n${d.text}`;
+                }).join("\n\n---\n\n");
             }
         } else {
             console.log("No index available, proceeding without context.");
@@ -138,10 +141,17 @@ export const handler: Schema["chat"]["functionHandler"] = async (event) => {
         // 3. Call LLM
         const modelId = process.env.MODEL_ID || 'anthropic.claude-3-haiku-20240307-v1:0';
 
-        const systemPrompt = `You are PolicyPal, a helpful assistant. 
-Use the following context to answer the user's question accurately. 
-If the answer is not in the context, say "I couldn't find that information in the policies" and suggest checking with HR. 
-Do not hallucinate.
+        const systemPrompt = `You are PolicyPal, a helpful assistant for company policies.
+Answer the user's question using ONLY the provided context.
+
+CITATION RULES:
+- You MUST use square bracket citations like [1], [2] at the end of every sentence that uses information from a source.
+- Do NOT use source names like "According to the Vacation Policy" or "Source 1 says". Just state the fact and append the marker [1].
+- If the answer isn't in the context, say "I couldn't find that information in the policies" and suggest checking with HR.
+- If multiple sources support a point, use [1][2].
+
+Example Response:
+Employees are entitled to 20 days of PTO per year [1]. This must be requested 2 weeks in advance [2].
 
 Context:
 ${context}

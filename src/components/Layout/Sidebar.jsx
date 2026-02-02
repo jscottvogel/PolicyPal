@@ -15,17 +15,15 @@ export function Sidebar({ onSignOut, activeTab, setActiveTab, isOpen, onClose })
                     className={`nav-item ${activeTab === 'chat' ? 'active' : ''}`}
                     onClick={() => { setActiveTab('chat'); onClose?.(); }}
                 >
-                    Chat
+                    💬 Policy Chat
                 </button>
                 {isAdmin && (
-                    <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                        <button
-                            className={`nav-item ${activeTab === 'upload' ? 'active' : ''}`}
-                            onClick={() => { setActiveTab('upload'); onClose?.(); }}
-                        >
-                            Manage Policies
-                        </button>
-                    </div>
+                    <button
+                        className={`nav-item ${activeTab === 'upload' ? 'active' : ''}`}
+                        onClick={() => { setActiveTab('upload'); onClose?.(); }}
+                    >
+                        📁 Manage Policies
+                    </button>
                 )}
             </nav>
 

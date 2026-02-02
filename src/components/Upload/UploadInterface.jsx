@@ -13,6 +13,12 @@ export function UploadInterface() {
     const [syncing, setSyncing] = useState(false);
     const [refreshSuccess, setRefreshSuccess] = useState(false);
     const [syncingFiles, setSyncingFiles] = useState(new Set()); // Track individual file syncs
+    const [totalSize, setTotalSize] = useState(0);
+
+    useEffect(() => {
+        const total = files.reduce((acc, file) => acc + (file.size || 0), 0);
+        setTotalSize(total);
+    }, [files]);
 
     const fetchFiles = async (silent = false) => {
         if (!silent) setFetching(true);
@@ -93,180 +99,156 @@ export function UploadInterface() {
     };
 
     return (
-        <div className="upload-interface">
-            <div className="upload-header">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                        <h2>Policy Management</h2>
-                        <p>Upload new policy documents (PDF) here. </p>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <button
-                                onClick={async () => {
-                                    if (!window.confirm("Are you sure you want to clear the entire search index? The chatbot will have no policy knowledge until you sync again.")) return;
-                                    setSyncing(true);
-                                    try {
-                                        const { data, errors } = await client.mutations.sync({ clear: true });
-                                        if (errors) throw errors[0];
-                                        alert("Index cleared successfully.");
-                                        await fetchFiles(true);
-                                    } catch (e) {
-                                        console.error("Clear Index failed:", e);
-                                        alert("Failed to clear index.");
-                                    } finally {
-                                        setSyncing(false);
-                                    }
-                                }}
-                                className="delete-btn"
-                                style={{
-                                    height: '40px',
-                                    fontSize: '0.9rem',
-                                    padding: '0 1rem',
-                                    fontWeight: 'bold'
-                                }}
-                                disabled={syncing}
-                            >
-                                🗑 Clear Index
-                            </button>
-                            <button
-                                onClick={async () => {
-                                    setSyncing(true);
-                                    try {
-                                        // Force a refresh-only call
-                                        const { data, errors } = await client.queries.chat({
-                                            message: "",
-                                            forceRefresh: true
-                                        });
-                                        if (errors) throw errors[0];
+        <div className="manage-policies-screen">
+            <header className="page-header">
+                <div className="header-title">
+                    <h1>Policy Management</h1>
+                    <p>Securely upload and index your company documents for the Chatbot Knowledge Base.</p>
+                </div>
+                <div className="header-actions">
+                    <button
+                        onClick={async () => {
+                            if (!window.confirm("Are you sure you want to clear the entire search index? The chatbot will have no policy knowledge until you sync again.")) return;
+                            setSyncing(true);
+                            try {
+                                const { data, errors } = await client.mutations.sync({ clear: true });
+                                if (errors) throw errors[0];
+                                alert("Index cleared successfully.");
+                                await fetchFiles(true);
+                            } catch (e) {
+                                console.error("Clear Index failed:", e);
+                                alert("Failed to clear index.");
+                            } finally {
+                                setSyncing(false);
+                            }
+                        }}
+                        className="btn btn-danger"
+                        disabled={syncing}
+                    >
+                        🗑 Clear Index
+                    </button>
+                    <button
+                        onClick={async () => {
+                            setSyncing(true);
+                            try {
+                                await client.queries.chat({ message: "", forceRefresh: true });
+                                setRefreshSuccess(true);
+                                setTimeout(() => setRefreshSuccess(false), 3000);
+                            } catch (e) {
+                                console.error("Refresh failed:", e);
+                                alert("Failed to refresh index cache.");
+                            } finally {
+                                setSyncing(false);
+                            }
+                        }}
+                        className={`btn btn-secondary ${refreshSuccess ? 'success' : ''}`}
+                        disabled={syncing}
+                    >
+                        {syncing ? (
+                            <span className="loader"></span>
+                        ) : refreshSuccess ? (
+                            <><span>✓</span> Cache Refreshed</>
+                        ) : (
+                            <>🔄 Refresh Cache</>
+                        )}
+                    </button>
+                    <button
+                        onClick={handleSyncAll}
+                        className={`btn btn-primary ${syncing ? 'syncing' : ''}`}
+                        disabled={syncing}
+                    >
+                        {syncing && <span className="loader"></span>}
+                        {syncing ? 'Indexing Knowledge...' : 'Sync All Policies'}
+                    </button>
+                </div>
+            </header>
 
-                                        setRefreshSuccess(true);
-                                        setTimeout(() => setRefreshSuccess(false), 3000);
-                                    } catch (e) {
-                                        console.error("Refresh failed:", e);
-                                        alert("Failed to refresh index cache.");
-                                    } finally {
-                                        setSyncing(false);
-                                    }
-                                }}
-                                className="refresh-btn"
-                                style={{
-                                    height: '40px',
-                                    fontSize: '0.9rem',
-                                    padding: '0 1rem'
-                                }}
-                                disabled={syncing}
-                            >
-                                {syncing ? (
-                                    <span className="loader" style={{ border: '2px solid var(--text-muted)', borderBottomColor: 'transparent' }}></span>
-                                ) : refreshSuccess ? (
-                                    <><span>✓</span> Cache Refreshed</>
-                                ) : (
-                                    <>🔄 Refresh Chatbot Cache</>
-                                )}
-                            </button>
-                            <button
-                                onClick={handleSyncAll}
-                                className="chat-send-btn"
-                                style={{
-                                    padding: '0.5rem 1rem',
-                                    height: 'fit-content',
-                                    opacity: syncing ? 0.7 : 1,
-                                    cursor: syncing ? 'not-allowed' : 'pointer',
-                                    minWidth: '120px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    gap: '0.5rem'
-                                }}
-                                disabled={syncing}
-                            >
-                                {syncing && <span className="loader"></span>}
-                                {syncing ? 'Indexing...' : 'Sync All Policies'}
-                            </button>
+            <div className="page-content">
+                <section className="upload-section card">
+                    <h2>Upload Documents</h2>
+                    <p className="section-help">Add PDF documents to the repository. These will be available for indexing immediately.</p>
+                    <div className="storage-manager-wrapper">
+                        <StorageManager
+                            acceptedFileTypes={['application/pdf']}
+                            path="public/"
+                            maxFileCount={10}
+                            isResumable
+                            displayText={{
+                                dropFilesText: 'Drag & drop PDF policies here',
+                                browseFilesText: 'Browse files'
+                            }}
+                            onUploadSuccess={() => fetchFiles(true)}
+                        />
+                    </div>
+                </section>
+
+                <section className="files-section card">
+                    <div className="section-header">
+                        <h2>Knowledge Base Inventory</h2>
+                        <div className="header-badges">
+                            <span className="file-count stats-badge">{files.length} PDF Documents</span>
+                            <span className="storage-count stats-badge">{(totalSize / 1024 / 1024).toFixed(2)} MB Total</span>
                         </div>
                     </div>
-                </div>
-            </div>
 
-            <div className="upload-container">
-                <StorageManager
-                    acceptedFileTypes={['application/pdf']}
-                    path="public/"
-                    maxFileCount={10}
-                    isResumable
-                    displayText={{
-                        dropFilesText: 'Drag & drop PDF policies here',
-                        browseFilesText: 'Browse files'
-                    }}
-                    onUploadSuccess={() => fetchFiles(true)}
-                />
-            </div>
+                    {fetching ? (
+                        <div className="loading-state">
+                            <span className="loader large"></span>
+                            <p>Loading your policies...</p>
+                        </div>
+                    ) : files.length === 0 ? (
+                        <div className="empty-state">
+                            <p>No policies found. Start by uploading a document above.</p>
+                        </div>
+                    ) : (
+                        <div className="file-grid">
+                            {files.map((file) => {
+                                const isIndexed = indexedFiles.has(file.path);
+                                const isSyncing = syncingFiles.has(file.path);
 
-            <div className="file-list-section">
-                <h3>Existing Policies</h3>
-                {fetching ? (
-                    <p>Loading policies...</p>
-                ) : files.length === 0 ? (
-                    <p className="no-files">No policies found.</p>
-                ) : (
-                    <ul className="file-list">
-                        {files.map((file) => {
-                            const isIndexed = indexedFiles.has(file.path);
-                            const isSyncing = syncingFiles.has(file.path);
+                                return (
+                                    <div key={file.path} className={`file-card ${isIndexed ? 'is-indexed' : 'is-pending'}`}>
+                                        <div className="file-status-indicator"></div>
+                                        <div className="file-content">
+                                            <div className="file-main">
+                                                <span className="file-name">{file.path.replace('public/', '')}</span>
+                                                <div className="file-meta">
+                                                    <span>{(file.size / 1024).toFixed(1)} KB</span>
+                                                    <span className="dot">•</span>
+                                                    <span>{new Date(file.lastModified).toLocaleDateString()}</span>
+                                                </div>
+                                            </div>
 
-                            return (
-                                <li key={file.path} className="file-item" style={{ gap: '1rem' }}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-                                        <span className="file-name">{file.path.replace('public/', '')}</span>
-                                        <span className="file-info" style={{ fontSize: '0.8rem', color: '#666' }}>
-                                            {(file.size / 1024).toFixed(1)} KB &bull; {new Date(file.lastModified).toLocaleDateString()}
-                                        </span>
+                                            <div className="file-actions">
+                                                <div className={`status-badge ${isIndexed ? 'indexed' : 'pending'}`}>
+                                                    {isIndexed ? '✓ Indexed' : '○ Not Indexed'}
+                                                </div>
+                                                <div className="action-buttons">
+                                                    <button
+                                                        className="action-btn sync-btn"
+                                                        onClick={() => handleSyncFile(file.path)}
+                                                        disabled={isSyncing || syncing}
+                                                        title="Re-index this file"
+                                                    >
+                                                        {isSyncing ? 'Syncing...' : 'Sync'}
+                                                    </button>
+                                                    <button
+                                                        className="action-btn delete-btn"
+                                                        onClick={() => handleDelete(file.path)}
+                                                        title="Delete Policy"
+                                                        disabled={isSyncing || syncing}
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
-
-                                    {/* Status Badge */}
-                                    <div className={`sync-badge ${isIndexed ? 'indexed' : 'pending'}`}>
-                                        {isIndexed ? (
-                                            <>
-                                                <span>✓</span> Indexed
-                                            </>
-                                        ) : (
-                                            <>
-                                                <span>○</span> Not Indexed
-                                            </>
-                                        )}
-                                    </div>
-
-                                    {/* Sync Button (if not indexed or force re-sync) */}
-                                    <button
-                                        className="chat-send-btn"
-                                        onClick={() => handleSyncFile(file.path)}
-                                        disabled={isSyncing || syncing}
-                                        style={{
-                                            padding: '0.3rem 0.8rem',
-                                            fontSize: '0.85rem',
-                                            opacity: (isSyncing || syncing) ? 0.6 : 1,
-                                            background: isSyncing ? '#ccc' : undefined,
-                                            borderColor: isSyncing ? '#ccc' : undefined
-                                        }}
-                                        title="Re-index this file"
-                                    >
-                                        {isSyncing ? 'Syncing...' : 'Sync'}
-                                    </button>
-
-                                    <button
-                                        className="delete-btn"
-                                        onClick={() => handleDelete(file.path)}
-                                        title="Delete Policy"
-                                        disabled={isSyncing || syncing}
-                                    >
-                                        Delete
-                                    </button>
-                                </li>
-                            );
-                        })}
-                    </ul>
-                )}
+                                );
+                            })}
+                        </div>
+                    )}
+                </section>
             </div>
         </div>
     );

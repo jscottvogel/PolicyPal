@@ -69,6 +69,11 @@ async function runTest() {
     if (!chat2.answer.toLowerCase().includes("blue socks")) {
         throw new Error("Chat failed to answer about Policy A.");
     }
+    if (!chat2.answer.includes("[1]")) {
+        console.warn("   ⚠️ Warning: Chat response did NOT include citation marker [1].");
+    } else {
+        console.log("   ✅ SUCCESS: Citation marker [1] found.");
+    }
     console.log("   ✅ SUCCESS: Policy A knowledge confirmed.");
 
     // 5. Upload File B (Updating knowledge)
