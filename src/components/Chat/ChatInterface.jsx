@@ -69,32 +69,15 @@ export function ChatInterface() {
 
     return (
         <div className="chat-interface">
-            <div className="chat-header" style={{
-                padding: '1rem',
-                borderBottom: '1px solid var(--border-color)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-            }}>
-                <h3 style={{ margin: 0 }}>Policy Chat</h3>
+            <div className="chat-header">
+                <h3>Policy Chat</h3>
                 <button
                     onClick={handleRefresh}
                     disabled={loading}
                     className="refresh-btn"
                     title="Refresh knowledge base"
-                    style={{
-                        background: 'transparent',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: '4px',
-                        padding: '4px 8px',
-                        fontSize: '0.8rem',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                    }}
                 >
-                    🔄 Refresh
+                    {loading ? <span className="loader" style={{ border: '2px solid var(--text-muted)', borderBottomColor: 'transparent' }}></span> : '🔄'} Refresh
                 </button>
             </div>
             <div className="messages-list">

@@ -100,25 +100,61 @@ export function UploadInterface() {
                         <p>Upload new policy documents (PDF) here. </p>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
-                        <button
-                            onClick={handleSyncAll}
-                            className="chat-send-btn"
-                            style={{
-                                padding: '0.5rem 1rem',
-                                height: 'fit-content',
-                                opacity: syncing ? 0.7 : 1,
-                                cursor: syncing ? 'not-allowed' : 'pointer',
-                                minWidth: '120px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '0.5rem'
-                            }}
-                            disabled={syncing}
-                        >
-                            {syncing && <span className="loader"></span>}
-                            {syncing ? 'Indexing All...' : 'Sync All Policies'}
-                        </button>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button
+                                onClick={async () => {
+                                    setSyncing(true);
+                                    try {
+                                        await client.queries.chat({ message: "", forceRefresh: true });
+                                        // Simple temporary feedback
+                                        const btn = document.getElementById('refresh-kb-btn');
+                                        if (btn) {
+                                            const originalText = btn.innerText;
+                                            btn.innerText = "✓ Refreshed";
+                                            setTimeout(() => btn.innerText = originalText, 2000);
+                                        }
+                                    } catch (e) {
+                                        alert("Failed to refresh: " + e.message);
+                                    } finally {
+                                        setSyncing(false);
+                                    }
+                                }}
+                                id="refresh-kb-btn"
+                                className="nav-item"
+                                style={{
+                                    padding: '0.5rem 1rem',
+                                    height: 'fit-content',
+                                    fontSize: '0.85rem',
+                                    border: '1px solid var(--border-color)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.4rem',
+                                    color: 'var(--text-secondary)'
+                                }}
+                                disabled={syncing}
+                            >
+                                🔄 Refresh Chatbot Cache
+                            </button>
+                            <button
+                                onClick={handleSyncAll}
+                                className="chat-send-btn"
+                                style={{
+                                    padding: '0.5rem 1rem',
+                                    height: 'fit-content',
+                                    opacity: syncing ? 0.7 : 1,
+                                    cursor: syncing ? 'not-allowed' : 'pointer',
+                                    minWidth: '120px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '0.5rem'
+                                }}
+                                disabled={syncing}
+                            >
+                                {syncing && <span className="loader"></span>}
+                                {syncing ? 'Indexing...' : 'Sync All Policies'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

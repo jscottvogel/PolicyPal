@@ -245,6 +245,22 @@
   /* Allow flex shrinking */
 }
 
+.chat-header {
+  background-color: var(--bg-surface);
+  border-bottom: 2px solid var(--bg-app);
+  padding: var(--space-4);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 10;
+}
+
+.chat-header h3 {
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
 .messages-list {
   flex: 1;
   overflow-y: auto;
@@ -356,6 +372,8 @@
   margin-top: var(--space-8);
   padding-top: var(--space-6);
   border-top: 1px solid var(--border-color);
+  min-height: 400px;
+  /* Stabilize layout */
 }
 
 .file-list-section h3 {
@@ -483,12 +501,21 @@
 .refresh-btn {
   transition: all 0.2s ease;
   color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--space-1) var(--space-3);
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .refresh-btn:hover {
   color: var(--primary-color);
-  border-color: var(--primary-color) !important;
-  background-color: rgba(0, 0, 0, 0.02) !important;
+  border-color: var(--primary-color);
+  background-color: var(--bg-app);
 }
 
 .refresh-btn:active {
