@@ -1,16 +1,15 @@
 import type { Schema } from '../../data/resource';
 import { BedrockRuntimeClient, InvokeModelCommand } from "@aws-sdk/client-bedrock-runtime";
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 import { generateEmbedding, cosineSimilarity, VectorDoc } from '../common/vector-utils';
 
 const s3 = new S3Client({ region: process.env.AWS_REGION });
 const bedrock = new BedrockRuntimeClient({ region: process.env.AWS_REGION });
 const BUCKET_NAME = process.env.BUCKET_NAME;
 
-// Simple in-memory cache
+// In-memory cache
 let cachedIndex: VectorDoc[] | null = null;
-let lastLoadTime = 0;
-const CACHE_TTL = 300000; // 5 minutes
+let indexLastModified: Date | undefined = undefined;
 
 // Helper to convert stream to string
 const streamToString = (stream: any): Promise<string> => {
@@ -33,11 +32,31 @@ export const handler: Schema["chat"]["functionHandler"] = async (event) => {
     if (!BUCKET_NAME) {
         return { answer: "Configuration error: BUCKET_NAME missing.", citations: [] };
     }
-
     try {
-        // 1. Load Index (with caching)
-        const now = Date.now();
-        if (!cachedIndex || (now - lastLoadTime > CACHE_TTL)) {
+        // 1. Check if Index needs reloading
+        let shouldReload = false;
+        let newLastModified: Date | undefined;
+
+        try {
+            const headCmd = new HeadObjectCommand({
+                Bucket: BUCKET_NAME,
+                Key: 'vectors/index.json'
+            });
+            const headRes = await s3.send(headCmd);
+            newLastModified = headRes.LastModified;
+
+            if (!cachedIndex || !indexLastModified || !newLastModified || newLastModified > indexLastModified) {
+                console.log("Index changed or not loaded. Reloading...");
+                shouldReload = true;
+            } else {
+                console.log("Index unchanged. Using cache.");
+            }
+        } catch (e) {
+            console.log("Index not found or access denied.");
+            shouldReload = true; // Try to load anyway to handle empty state logic
+        }
+
+        if (shouldReload) {
             console.log("Loading vector index from S3...");
             try {
                 const getCmd = new GetObjectCommand({
@@ -47,13 +66,15 @@ export const handler: Schema["chat"]["functionHandler"] = async (event) => {
                 const res = await s3.send(getCmd);
                 const body = await streamToString(res.Body);
                 cachedIndex = JSON.parse(body);
-                lastLoadTime = now;
+                indexLastModified = newLastModified;
                 console.log(`Index loaded. ${cachedIndex?.length} chunks.`);
             } catch (err: any) {
                 console.warn("Failed to load index (might not exist yet):", err.message);
                 cachedIndex = [];
+                indexLastModified = undefined;
             }
         }
+        // ...
 
         let context = "";
         let citations: any[] = [];
