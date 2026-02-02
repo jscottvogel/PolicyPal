@@ -21,7 +21,10 @@ const schema = a.schema({
 
   chat: a
     .query()
-    .arguments({ message: a.string() })
+    .arguments({
+      message: a.string(),
+      forceRefresh: a.boolean()
+    })
     .returns(a.ref('ChatResponse'))
     .handler(a.handler.function(chatFunction))
     .authorization((allow) => [allow.authenticated()]),

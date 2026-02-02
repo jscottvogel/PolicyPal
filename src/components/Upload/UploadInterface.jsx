@@ -13,28 +13,32 @@ export function UploadInterface() {
     const [syncing, setSyncing] = useState(false);
     const [syncingFiles, setSyncingFiles] = useState(new Set()); // Track individual file syncs
 
-    const fetchFiles = async () => {
-        setFetching(true);
+    const fetchFiles = async (silent = false) => {
+        if (!silent) setFetching(true);
         try {
-            // Fetch S3 files
-            const result = await list({
-                path: 'public/',
-                options: { listAll: true }
-            });
-            const s3Files = result.items;
+            const [result, indexResult] = await Promise.all([
+                list({
+                    path: 'public/',
+                    options: { listAll: true }
+                }),
+                // @ts-ignore
+                client.queries.getIndexedFiles()
+            ]);
 
-            // Fetch Index Status
-            // @ts-ignore
-            const indexResult = await client.queries.getIndexedFiles();
+            const s3Files = result.items;
             const indexedSet = new Set(indexResult.data || []);
 
-            setFiles(s3Files);
+            setFiles(prev => {
+                // Only update if data changed (simple check)
+                if (JSON.stringify(prev) === JSON.stringify(s3Files)) return prev;
+                return s3Files;
+            });
             setIndexedFiles(indexedSet);
 
         } catch (e) {
             console.error('Error fetching data:', e);
         } finally {
-            setFetching(false);
+            if (!silent) setFetching(false);
         }
     };
 
@@ -58,9 +62,9 @@ export function UploadInterface() {
         try {
             const { data, errors } = await client.mutations.sync();
             if (errors) throw errors[0];
-            alert(`Sync triggered: ${data.message}`);
+            // alert(`Sync triggered: ${data.message}`);
             // Refresh status after sync
-            await fetchFiles();
+            await fetchFiles(true);
         } catch (e) {
             console.error('Sync failed:', e);
             alert('Failed to trigger sync. Check logs.');
@@ -74,8 +78,7 @@ export function UploadInterface() {
         try {
             const { data, errors } = await client.mutations.sync({ filePath });
             if (errors) throw errors[0];
-            // alert(`Synced ${filePath}: ${data.message}`);
-            await fetchFiles();
+            await fetchFiles(true);
         } catch (e) {
             console.error(`Sync failed for ${filePath}:`, e);
             alert(`Failed to sync ${filePath}.`);
@@ -130,7 +133,7 @@ export function UploadInterface() {
                         dropFilesText: 'Drag & drop PDF policies here',
                         browseFilesText: 'Browse files'
                     }}
-                    onUploadSuccess={() => fetchFiles()}
+                    onUploadSuccess={() => fetchFiles(true)}
                 />
             </div>
 
@@ -156,18 +159,7 @@ export function UploadInterface() {
                                     </div>
 
                                     {/* Status Badge */}
-                                    <div style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '0.5rem',
-                                        fontSize: '0.85rem',
-                                        fontWeight: 500,
-                                        color: isIndexed ? 'green' : '#d97706',
-                                        background: isIndexed ? '#dcfce7' : '#fef3c7',
-                                        padding: '0.25rem 0.75rem',
-                                        borderRadius: '999px',
-                                        border: `1px solid ${isIndexed ? '#bbf7d0' : '#fcd34d'}`
-                                    }}>
+                                    <div className={`sync-badge ${isIndexed ? 'indexed' : 'pending'}`}>
                                         {isIndexed ? (
                                             <>
                                                 <span>✓</span> Indexed

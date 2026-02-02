@@ -22,10 +22,10 @@ const streamToString = (stream: any): Promise<string> => {
 };
 
 export const handler: Schema["chat"]["functionHandler"] = async (event) => {
-    const { message } = event.arguments;
-    console.log("Receive Chat Request:", { message });
+    const { message, forceRefresh } = event.arguments;
+    console.log("Receive Chat Request:", { message, forceRefresh });
 
-    if (!message) {
+    if (!message && !forceRefresh) {
         return { answer: "Please provide a message.", citations: [] };
     }
 
@@ -34,26 +34,33 @@ export const handler: Schema["chat"]["functionHandler"] = async (event) => {
     }
     try {
         // 1. Check if Index needs reloading
-        let shouldReload = false;
+        let shouldReload = !!forceRefresh;
         let newLastModified: Date | undefined;
 
-        try {
-            const headCmd = new HeadObjectCommand({
-                Bucket: BUCKET_NAME,
-                Key: 'vectors/index.json'
-            });
-            const headRes = await s3.send(headCmd);
-            newLastModified = headRes.LastModified;
+        if (!shouldReload) {
+            try {
+                const headCmd = new HeadObjectCommand({
+                    Bucket: BUCKET_NAME,
+                    Key: 'vectors/index.json'
+                });
+                const headRes = await s3.send(headCmd);
+                newLastModified = headRes.LastModified;
 
-            if (!cachedIndex || !indexLastModified || !newLastModified || newLastModified > indexLastModified) {
-                console.log("Index changed or not loaded. Reloading...");
-                shouldReload = true;
-            } else {
-                console.log("Index unchanged. Using cache.");
+                const cachedTime = indexLastModified ? indexLastModified.getTime() : 0;
+                const s3Time = newLastModified ? newLastModified.getTime() : 0;
+
+                console.log(`Cache Status: cachedIndex=${!!cachedIndex}, cachedTime=${cachedTime}, s3Time=${s3Time}`);
+
+                if (!cachedIndex || s3Time > cachedTime) {
+                    console.log(`Index changed or missing. Reloading... (S3: ${s3Time} > Cache: ${cachedTime})`);
+                    shouldReload = true;
+                } else {
+                    console.log("Index unchanged. Using cache.");
+                }
+            } catch (e) {
+                console.log("Index not found on S3 or error checking metadata:", e);
+                shouldReload = !cachedIndex;
             }
-        } catch (e) {
-            console.log("Index not found or access denied.");
-            shouldReload = true; // Try to load anyway to handle empty state logic
         }
 
         if (shouldReload) {
@@ -66,21 +73,26 @@ export const handler: Schema["chat"]["functionHandler"] = async (event) => {
                 const res = await s3.send(getCmd);
                 const body = await streamToString(res.Body);
                 cachedIndex = JSON.parse(body);
-                indexLastModified = newLastModified;
-                console.log(`Index loaded. ${cachedIndex?.length} chunks.`);
+                indexLastModified = newLastModified || new Date();
+                console.log(`Index loaded. ${cachedIndex?.length} chunks. New LastModified: ${indexLastModified.getTime()}`);
             } catch (err: any) {
-                console.warn("Failed to load index (might not exist yet):", err.message);
-                cachedIndex = [];
+                console.warn("Failed to load index:", err.message);
                 indexLastModified = undefined;
             }
         }
+
+        // Handle refresh-only call
+        if (forceRefresh && !message) {
+            return { answer: "Cache has been refreshed.", citations: [] };
+        }
+
         // ...
 
         let context = "";
         let citations: any[] = [];
 
         // 2. Perform Retrieval if index exists
-        if (cachedIndex && cachedIndex.length > 0) {
+        if (cachedIndex && cachedIndex.length > 0 && message) {
             console.log("Generating embedding for query...");
             const queryEmbedding = await generateEmbedding(message);
 

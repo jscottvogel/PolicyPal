@@ -434,23 +434,68 @@
   border-left: 2px solid currentColor;
 }
 
-/* Simple CSS Loader */
-.loader {
-  width: 16px;
-  height: 16px;
-  border: 2px solid #ffffff;
-  border-bottom-color: transparent;
-  border-radius: 50%;
-  display: inline-block;
-  box-sizing: border-box;
-  animation: rotation 1s linear infinite;
+.chat-send-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.file-item {
+  transition: all 0.2s ease;
+}
+
+.file-item:hover {
+  border-color: var(--primary-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.sync-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+}
+
+.sync-badge.indexed {
+  color: #166534;
+  background: #dcfce7;
+  border: 1px solid #bbf7d0;
+}
+
+.sync-badge.pending {
+  color: #92400e;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
 }
 
 @keyframes rotation {
   0% {
     transform: rotate(0deg);
   }
+
   100% {
     transform: rotate(360deg);
   }
+}
+
+.refresh-btn {
+  transition: all 0.2s ease;
+  color: var(--text-secondary);
+}
+
+.refresh-btn:hover {
+  color: var(--primary-color);
+  border-color: var(--primary-color) !important;
+  background-color: rgba(0, 0, 0, 0.02) !important;
+}
+
+.refresh-btn:active {
+  transform: scale(0.95);
+}
+
+.refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

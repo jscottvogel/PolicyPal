@@ -50,8 +50,53 @@ export function ChatInterface() {
         }
     };
 
+    const handleRefresh = async () => {
+        setLoading(true);
+        try {
+            const { data, errors } = await client.queries.chat({
+                message: "",
+                forceRefresh: true
+            });
+            if (errors) throw errors[0];
+            alert("Chatbot knowledge base refreshed!");
+        } catch (err) {
+            console.error("Refresh failed:", err);
+            alert("Failed to refresh knowledge base.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <div className="chat-interface">
+            <div className="chat-header" style={{
+                padding: '1rem',
+                borderBottom: '1px solid var(--border-color)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+            }}>
+                <h3 style={{ margin: 0 }}>Policy Chat</h3>
+                <button
+                    onClick={handleRefresh}
+                    disabled={loading}
+                    className="refresh-btn"
+                    title="Refresh knowledge base"
+                    style={{
+                        background: 'transparent',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '4px',
+                        padding: '4px 8px',
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                    }}
+                >
+                    🔄 Refresh
+                </button>
+            </div>
             <div className="messages-list">
                 {messages.map((msg, i) => (
                     <ChatMessage
