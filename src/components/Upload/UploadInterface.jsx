@@ -11,6 +11,7 @@ export function UploadInterface() {
     const [indexedFiles, setIndexedFiles] = useState(new Set());
     const [fetching, setFetching] = useState(true);
     const [syncing, setSyncing] = useState(false);
+    const [refreshSuccess, setRefreshSuccess] = useState(false);
     const [syncingFiles, setSyncingFiles] = useState(new Set()); // Track individual file syncs
 
     const fetchFiles = async (silent = false) => {
@@ -106,13 +107,8 @@ export function UploadInterface() {
                                     setSyncing(true);
                                     try {
                                         await client.queries.chat({ message: "", forceRefresh: true });
-                                        // Simple temporary success feedback
-                                        const btn = document.getElementById('refresh-kb-btn');
-                                        if (btn) {
-                                            const originalText = btn.innerHTML;
-                                            btn.innerHTML = "<span>✓</span> Cached Refreshed";
-                                            setTimeout(() => btn.innerHTML = originalText, 3000);
-                                        }
+                                        setRefreshSuccess(true);
+                                        setTimeout(() => setRefreshSuccess(false), 3000);
                                     } catch (e) {
                                         console.error("Refresh failed:", e);
                                         alert("Failed to refresh index cache.");
@@ -120,7 +116,6 @@ export function UploadInterface() {
                                         setSyncing(false);
                                     }
                                 }}
-                                id="refresh-kb-btn"
                                 className="refresh-btn"
                                 style={{
                                     height: '40px',
@@ -129,7 +124,13 @@ export function UploadInterface() {
                                 }}
                                 disabled={syncing}
                             >
-                                {syncing ? <span className="loader" style={{ border: '2px solid var(--text-muted)', borderBottomColor: 'transparent' }}></span> : '🔄'} Refresh Chatbot Cache
+                                {syncing ? (
+                                    <span className="loader" style={{ border: '2px solid var(--text-muted)', borderBottomColor: 'transparent' }}></span>
+                                ) : refreshSuccess ? (
+                                    <><span>✓</span> Cache Refreshed</>
+                                ) : (
+                                    <>🔄 Refresh Chatbot Cache</>
+                                )}
                             </button>
                             <button
                                 onClick={handleSyncAll}
