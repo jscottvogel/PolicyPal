@@ -5,7 +5,7 @@ import { generateEmbedding, splitText, VectorDoc } from '../common/vector-utils'
 import { randomUUID } from 'crypto';
 
 // @ts-ignore
-import PDFParser from 'pdf2json';
+import { extractText } from 'unpdf';
 
 const s3 = new S3Client({ region: process.env.AWS_REGION });
 const BUCKET_NAME = process.env.BUCKET_NAME;
@@ -21,7 +21,7 @@ const streamToBuffer = async (stream: any): Promise<Buffer> => {
 };
 
 export const handler: Schema["sync"]["functionHandler"] = async (event) => {
-    console.log("Starting Incremental Sync (pdf-parse CJS)...");
+    console.log("Starting Incremental Sync (unpdf)...");
 
     if (!BUCKET_NAME) {
         return { success: false, message: "BUCKET_NAME env var missing." };
@@ -104,20 +104,14 @@ export const handler: Schema["sync"]["functionHandler"] = async (event) => {
                 let text = "";
                 if (file.Key.toLowerCase().endsWith('.pdf')) {
                     try {
+                        console.log(`Parsing PDF with unpdf: ${file.Key}`);
                         // @ts-ignore
-                        const pdfParser = new PDFParser(null, true); // true = raw text enabled
-
-                        const parsePromise = new Promise<string>((resolve, reject) => {
-                            pdfParser.on("pdfParser_dataError", (errData: any) => reject(new Error(errData.parserError)));
-                            pdfParser.on("pdfParser_dataReady", (pdfData: any) => {
-                                // getRawTextContent() returns string.
-                                resolve(pdfParser.getRawTextContent());
-                            });
-                            pdfParser.parseBuffer(fileBuffer);
-                        });
-
-                        text = await parsePromise;
-                        console.log(`Parsed PDF successfully (pdf2json): ${text.length} chars`);
+                        const { text: pdfText } = await extractText(new Uint8Array(fileBuffer));
+                        text = Array.isArray(pdfText) ? pdfText.join("\n") : pdfText;
+                        console.log(`Parsed PDF successfully (unpdf): ${text.length} chars`);
+                        if (text.length > 0) {
+                            console.log(`Sample: ${text.substring(0, 100)}`);
+                        }
                     } catch (pErr) {
                         console.error(`PDF Parsing failed for ${file.Key}:`, pErr);
                         continue;
