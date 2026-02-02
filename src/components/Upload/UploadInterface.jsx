@@ -104,9 +104,42 @@ export function UploadInterface() {
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
                             <button
                                 onClick={async () => {
+                                    if (!window.confirm("Are you sure you want to clear the entire search index? The chatbot will have no policy knowledge until you sync again.")) return;
                                     setSyncing(true);
                                     try {
-                                        await client.queries.chat({ message: "", forceRefresh: true });
+                                        const { data, errors } = await client.mutations.sync({ clear: true });
+                                        if (errors) throw errors[0];
+                                        alert("Index cleared successfully.");
+                                        await fetchFiles(true);
+                                    } catch (e) {
+                                        console.error("Clear Index failed:", e);
+                                        alert("Failed to clear index.");
+                                    } finally {
+                                        setSyncing(false);
+                                    }
+                                }}
+                                className="delete-btn"
+                                style={{
+                                    height: '40px',
+                                    fontSize: '0.9rem',
+                                    padding: '0 1rem',
+                                    fontWeight: 'bold'
+                                }}
+                                disabled={syncing}
+                            >
+                                🗑 Clear Index
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    setSyncing(true);
+                                    try {
+                                        // Force a refresh-only call
+                                        const { data, errors } = await client.queries.chat({
+                                            message: "",
+                                            forceRefresh: true
+                                        });
+                                        if (errors) throw errors[0];
+
                                         setRefreshSuccess(true);
                                         setTimeout(() => setRefreshSuccess(false), 3000);
                                     } catch (e) {

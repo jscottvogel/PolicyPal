@@ -21,10 +21,28 @@ const streamToBuffer = async (stream: any): Promise<Buffer> => {
 };
 
 export const handler: Schema["sync"]["functionHandler"] = async (event) => {
-    console.log("Starting Incremental Sync (unpdf)...");
+    const { filePath, clear } = event.arguments;
+    console.log("Starting Sync Mutation:", { filePath, clear });
 
     if (!BUCKET_NAME) {
         return { success: false, message: "BUCKET_NAME env var missing." };
+    }
+
+    if (clear) {
+        console.log("Clearing index...");
+        try {
+            const deleteCmd = new PutObjectCommand({
+                Bucket: BUCKET_NAME,
+                Key: 'vectors/index.json',
+                Body: JSON.stringify([]),
+                ContentType: 'application/json'
+            });
+            await s3.send(deleteCmd);
+            return { success: true, message: "Index cleared successfully." };
+        } catch (e: any) {
+            console.error("Failed to clear index:", e);
+            return { success: false, message: "Failed to clear index: " + e.message };
+        }
     }
 
     try {

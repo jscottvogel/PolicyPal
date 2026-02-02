@@ -31,7 +31,10 @@ const schema = a.schema({
 
   sync: a
     .mutation()
-    .arguments({ filePath: a.string() })
+    .arguments({
+      filePath: a.string(),
+      clear: a.boolean()
+    })
     .returns(a.ref('SyncResponse'))
     .handler(a.handler.function(syncFunction))
     .authorization((allow) => [allow.authenticated()]),
