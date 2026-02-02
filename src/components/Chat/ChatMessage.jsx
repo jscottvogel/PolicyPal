@@ -29,31 +29,21 @@ export function ChatMessage({ message, isUser, citations = [] }) {
     return (
         <div className={`chat-message ${isUser ? 'user' : 'bot'}`}>
             <div className="message-content">
-                <ReactMarkdown
-                    components={{
-                        p: ({ node, ...props }) => {
-                            // Optionally intercept text to style [1]
-                            return <p {...props} />;
-                        }
-                    }}
-                >
-                    {message}
-                </ReactMarkdown>
+                <ReactMarkdown>{message}</ReactMarkdown>
             </div>
             {!isUser && citations && citations.length > 0 && (
                 <div className="citations-container">
-                    <div className="citations-header">Sources</div>
+                    <span className="citations-header">Derived from:</span>
                     <div className="citations-list">
                         {citations.map((cite, idx) => (
-                            <div key={idx} className="citation-item">
-                                <button
-                                    className="citation-tag"
-                                    onClick={() => handleCitationClick(cite.path)}
-                                    title={cite.path.replace('public/', '')}
-                                >
-                                    [{idx + 1}] {cite.path.replace('public/', '')}
-                                </button>
-                            </div>
+                            <button
+                                key={idx}
+                                className="citation-tag"
+                                onClick={() => handleCitationClick(cite.path)}
+                                title={cite.path.replace('public/', '')}
+                            >
+                                📄 {cite.path.replace('public/', '').replace('.pdf', '')}
+                            </button>
                         ))}
                     </div>
                 </div>

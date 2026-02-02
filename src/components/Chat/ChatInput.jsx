@@ -22,10 +22,11 @@ export function ChatInput({ onSend, disabled }) {
             />
             <button
                 type="submit"
-                className="chat-send-btn"
+                className="btn-icon"
                 disabled={disabled || !input.trim()}
+                title="Send message"
             >
-                Send
+                {disabled ? <span className="loader"></span> : '🚀'}
             </button>
         </form>
     );
