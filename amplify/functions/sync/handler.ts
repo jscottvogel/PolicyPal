@@ -1,24 +1,11 @@
+
 import type { Schema } from '../../data/resource';
 import { S3Client, ListObjectsV2Command, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { generateEmbedding, splitText, VectorDoc } from '../common/vector-utils';
 import { randomUUID } from 'crypto';
-import { PdfDataParser } from 'pdf-data-parser';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
 
-// Polyfill DOMMatrix for PDF parsing libraries
-if (!global.DOMMatrix) {
-    // @ts-ignore
-    global.DOMMatrix = class DOMMatrix {
-        constructor() { return this; }
-        setMatrixValue() { }
-        multiply() { return this; }
-        translate() { return this; }
-        scale() { return this; }
-        rotate() { return this; }
-    };
-}
+// @ts-ignore
+import PDFParser from 'pdf2json';
 
 const s3 = new S3Client({ region: process.env.AWS_REGION });
 const BUCKET_NAME = process.env.BUCKET_NAME;
@@ -34,14 +21,13 @@ const streamToBuffer = async (stream: any): Promise<Buffer> => {
 };
 
 export const handler: Schema["sync"]["functionHandler"] = async (event) => {
-    console.log("Starting Incremental Sync (pdf-data-parser)...");
+    console.log("Starting Incremental Sync (pdf-parse CJS)...");
 
     if (!BUCKET_NAME) {
         return { success: false, message: "BUCKET_NAME env var missing." };
     }
 
     try {
-        // 1. Load Existing Index
         let existingIndex: VectorDoc[] = [];
         try {
             const getIndex = new GetObjectCommand({
@@ -56,7 +42,6 @@ export const handler: Schema["sync"]["functionHandler"] = async (event) => {
             console.log("No existing index found or error loading it, starting fresh.");
         }
 
-        // 2. List all files in 'public/'
         const listCmd = new ListObjectsV2Command({
             Bucket: BUCKET_NAME,
             Prefix: 'public/'
@@ -67,9 +52,6 @@ export const handler: Schema["sync"]["functionHandler"] = async (event) => {
             return { success: true, message: "No files found." };
         }
 
-        // 3. Identify Files to Process
-        // Check for "File Marker" to confirm completion.
-        // A file is "indexed" only if it has a completion marker.
         const indexedPaths = new Set(
             existingIndex
                 .filter(d => d.metadata?.type === 'file_marker')
@@ -78,26 +60,20 @@ export const handler: Schema["sync"]["functionHandler"] = async (event) => {
 
         const outputDocs: VectorDoc[] = [...existingIndex];
         let processedCount = 0;
-
-        // Determine target files
         let targetFiles = listRes.Contents || [];
 
-        // If a specific file path is requested, filter just that one
         // @ts-ignore
         if (event.arguments?.filePath) {
             // @ts-ignore
             const targetPath = event.arguments.filePath;
             console.log(`Targeting specific file: ${targetPath}`);
             targetFiles = targetFiles.filter(f => f.Key === targetPath);
-
-            // Re-indexing: Force processing even if marked complete
             indexedPaths.delete(targetPath);
         }
 
         for (const file of targetFiles) {
             if (!file.Key || file.Key.endsWith('/')) continue;
 
-            // Skip ONLY if we have a completion marker and it wasn't explicitly requested
             // @ts-ignore
             if (!event.arguments?.filePath && indexedPaths.has(file.Key)) {
                 console.log(`Skipping fully indexed file: ${file.Key}`);
@@ -107,8 +83,6 @@ export const handler: Schema["sync"]["functionHandler"] = async (event) => {
             console.log(`Processing file: ${file.Key}`);
             processedCount++;
 
-            // CLEANUP: Remove any existing chunks (partial or old) for this file from the output index
-            // This ensures we don't have duplicates or ghosts from failed runs.
             const initialLength = outputDocs.length;
             const keptDocs = outputDocs.filter(d => d.path !== file.Key);
             outputDocs.length = 0;
@@ -119,58 +93,44 @@ export const handler: Schema["sync"]["functionHandler"] = async (event) => {
             }
 
             try {
-                // Download File
                 const getCmd = new GetObjectCommand({
                     Bucket: BUCKET_NAME,
                     Key: file.Key
                 });
                 const getRes = await s3.send(getCmd);
                 const fileBuffer = await streamToBuffer(getRes.Body);
+                console.log(`Downloaded buffer size for ${file.Key}: ${fileBuffer.length}`);
 
-                // Extract Text
                 let text = "";
                 if (file.Key.toLowerCase().endsWith('.pdf')) {
-                    console.log(`Parsing PDF with pdf-data-parser: ${file.Key}`);
-
-                    const tmpPath = path.join(os.tmpdir(), randomUUID() + '.pdf');
-                    fs.writeFileSync(tmpPath, fileBuffer);
-
                     try {
-                        const parser = new PdfDataParser({ url: tmpPath });
-                        // Safety timeout for parser
-                        const parsePromise = parser.parse();
-                        const timeoutPromise = new Promise((_, reject) =>
-                            setTimeout(() => reject(new Error("PDF Parsing timeout (60s)")), 60000)
-                        );
-
                         // @ts-ignore
-                        const rows = await Promise.race([parsePromise, timeoutPromise]);
+                        const pdfParser = new PDFParser(null, true); // true = raw text enabled
 
-                        // Flatten rows (array of strings)
-                        // @ts-ignore
-                        text = rows.map((r: any) => r.join(" ")).join("\n");
-                        console.log(`Parsed PDF successfully: ${text.length} chars`);
+                        const parsePromise = new Promise<string>((resolve, reject) => {
+                            pdfParser.on("pdfParser_dataError", (errData: any) => reject(new Error(errData.parserError)));
+                            pdfParser.on("pdfParser_dataReady", (pdfData: any) => {
+                                // getRawTextContent() returns string.
+                                resolve(pdfParser.getRawTextContent());
+                            });
+                            pdfParser.parseBuffer(fileBuffer);
+                        });
+
+                        text = await parsePromise;
+                        console.log(`Parsed PDF successfully (pdf2json): ${text.length} chars`);
                     } catch (pErr) {
                         console.error(`PDF Parsing failed for ${file.Key}:`, pErr);
-                        continue; // Skip this file
-                    } finally {
-                        try { fs.unlinkSync(tmpPath); } catch { }
+                        continue;
                     }
                 } else {
-
-                    // Assume text-based
                     text = fileBuffer.toString('utf-8');
                 }
 
                 if (!text.trim()) continue;
 
-                // Chunk Text
                 const chunks = splitText(text);
-
-                // Generate Embeddings (Parallel Batches)
                 console.log(`Generating embeddings for ${chunks.length} chunks...`);
 
-                // High concurrency, no intermediate S3 saves to prevent simple timeout
                 const BATCH_SIZE = 10;
                 for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
                     const batch = chunks.slice(i, i + BATCH_SIZE);
@@ -189,16 +149,14 @@ export const handler: Schema["sync"]["functionHandler"] = async (event) => {
                     }));
                 }
 
-                // Add Completion Marker
                 outputDocs.push({
                     id: randomUUID(),
                     path: file.Key as string,
-                    text: "", // Empty
-                    embedding: [], // Empty
+                    text: "",
+                    embedding: [],
                     metadata: { type: 'file_marker', timestamp: new Date().toISOString() }
                 });
 
-                // Save index ONLY after the file is fully processed
                 console.log(`Saving index with ${outputDocs.length} chunks...`);
                 const putCmd = new PutObjectCommand({
                     Bucket: BUCKET_NAME,
