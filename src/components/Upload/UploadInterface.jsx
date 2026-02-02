@@ -106,34 +106,30 @@ export function UploadInterface() {
                                     setSyncing(true);
                                     try {
                                         await client.queries.chat({ message: "", forceRefresh: true });
-                                        // Simple temporary feedback
+                                        // Simple temporary success feedback
                                         const btn = document.getElementById('refresh-kb-btn');
                                         if (btn) {
-                                            const originalText = btn.innerText;
-                                            btn.innerText = "✓ Refreshed";
-                                            setTimeout(() => btn.innerText = originalText, 2000);
+                                            const originalText = btn.innerHTML;
+                                            btn.innerHTML = "<span>✓</span> Cached Refreshed";
+                                            setTimeout(() => btn.innerHTML = originalText, 3000);
                                         }
                                     } catch (e) {
-                                        alert("Failed to refresh: " + e.message);
+                                        console.error("Refresh failed:", e);
+                                        alert("Failed to refresh index cache.");
                                     } finally {
                                         setSyncing(false);
                                     }
                                 }}
                                 id="refresh-kb-btn"
-                                className="nav-item"
+                                className="refresh-btn"
                                 style={{
-                                    padding: '0.5rem 1rem',
-                                    height: 'fit-content',
-                                    fontSize: '0.85rem',
-                                    border: '1px solid var(--border-color)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '0.4rem',
-                                    color: 'var(--text-secondary)'
+                                    height: '40px',
+                                    fontSize: '0.9rem',
+                                    padding: '0 1rem'
                                 }}
                                 disabled={syncing}
                             >
-                                🔄 Refresh Chatbot Cache
+                                {syncing ? <span className="loader" style={{ border: '2px solid var(--text-muted)', borderBottomColor: 'transparent' }}></span> : '🔄'} Refresh Chatbot Cache
                             </button>
                             <button
                                 onClick={handleSyncAll}

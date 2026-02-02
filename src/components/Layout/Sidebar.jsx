@@ -1,21 +1,7 @@
-import { generateClient } from 'aws-amplify/data';
 import { useAuth } from '../../context/AuthContext';
-
-const client = generateClient();
 
 export function Sidebar({ onSignOut, activeTab, setActiveTab, isOpen, onClose }) {
     const { user, isAdmin } = useAuth();
-
-    const handleRefresh = async () => {
-        try {
-            alert("Refreshing chatbot knowledge base...");
-            // @ts-ignore
-            await client.queries.chat({ message: "", forceRefresh: true });
-            alert("Chatbot knowledge base refreshed!");
-        } catch (e) {
-            alert("Refresh failed: " + e.message);
-        }
-    };
 
     return (
         <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
@@ -38,16 +24,6 @@ export function Sidebar({ onSignOut, activeTab, setActiveTab, isOpen, onClose })
                             onClick={() => { setActiveTab('upload'); onClose?.(); }}
                         >
                             Manage Policies
-                        </button>
-                        <button
-                            className="nav-item"
-                            style={{
-                                border: '1px solid var(--border-color)',
-                                fontSize: '0.85rem'
-                            }}
-                            onClick={handleRefresh}
-                        >
-                            🔄 Refresh Cache
                         </button>
                     </div>
                 )}
