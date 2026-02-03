@@ -177,9 +177,37 @@ ${context}
         const responseBody = JSON.parse(new TextDecoder().decode(response.body));
 
         // Claude 3 response structure
-        const answer = responseBody.content?.[0]?.text || "No response generated.";
+        let answerText = responseBody.content?.[0]?.text || "No response generated.";
 
-        return { answer, citations };
+        // 4. Refine citations: Only return those actually referenced in the answer
+        // and re-index them so the citations list matches the [1], [2] in the text.
+        const markers = Array.from(answerText.matchAll(/\[(\d+)\]/g)).map(m => parseInt(m[1]));
+        const uniqueReferencedIndices = Array.from(new Set(markers)).sort((a, b) => a - b);
+
+        const oldToNewMap: Record<number, number> = {};
+        const filteredCitations: any[] = [];
+
+        uniqueReferencedIndices.forEach((oldIdx, i) => {
+            const newIdx = i + 1;
+            oldToNewMap[oldIdx] = newIdx;
+            // uniquePaths indices in 'context' were 1-based, so oldIdx-1 is the array index
+            if (citations[oldIdx - 1]) {
+                filteredCitations.push(citations[oldIdx - 1]);
+            }
+        });
+
+        // Replace markers in the text with new indices
+        if (filteredCitations.length > 0) {
+            answerText = answerText.replace(/\[(\d+)\]/g, (match, p1) => {
+                const oldIdx = parseInt(p1);
+                return oldToNewMap[oldIdx] ? `[${oldToNewMap[oldIdx]}]` : match;
+            });
+        }
+
+        return {
+            answer: answerText,
+            citations: filteredCitations
+        };
 
     } catch (error) {
         console.error("Error in Chat Function:", error);
