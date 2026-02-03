@@ -181,7 +181,7 @@ ${context}
 
         // 4. Refine citations: Only return those actually referenced in the answer
         // and re-index them so the citations list matches the [1], [2] in the text.
-        const markers = Array.from(answerText.matchAll(/\[(\d+)\]/g)).map(m => parseInt(m[1]));
+        const markers = Array.from(answerText.matchAll(/\[(\d+)\]/g)).map((m: any) => parseInt(m[1]));
         const uniqueReferencedIndices = Array.from(new Set(markers)).sort((a, b) => a - b);
 
         const oldToNewMap: Record<number, number> = {};
@@ -198,7 +198,7 @@ ${context}
 
         // Replace markers in the text with new indices
         if (filteredCitations.length > 0) {
-            answerText = answerText.replace(/\[(\d+)\]/g, (match, p1) => {
+            answerText = answerText.replace(/\[(\d+)\]/g, (match: string, p1: string) => {
                 const oldIdx = parseInt(p1);
                 return oldToNewMap[oldIdx] ? `[${oldToNewMap[oldIdx]}]` : match;
             });
