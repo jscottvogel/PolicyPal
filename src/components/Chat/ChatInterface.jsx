@@ -7,7 +7,7 @@ const client = generateClient();
 
 export function ChatInterface() {
     const [messages, setMessages] = useState([
-        { text: "Hello! I'm **PolicyPal**, your intelligent policy assistant. I can help you find answers within your company's documents. What can I help you with today?", isUser: false }
+        { text: "Hello! I'm PolicyPal. Ask me anything about your company policies.", isUser: false }
     ]);
     const [loading, setLoading] = useState(false);
     const messagesEndRef = useRef(null);
@@ -30,7 +30,7 @@ export function ChatInterface() {
             if (errors) throw errors[0];
 
             const botMsg = {
-                text: data?.answer || "I couldn't generate a response. Please try again.",
+                text: data?.answer || "I couldn't generate a response.",
                 isUser: false,
                 citations: data?.citations || []
             };
@@ -38,7 +38,7 @@ export function ChatInterface() {
         } catch (err) {
             console.error(err);
             setMessages(prev => [...prev, {
-                text: "I'm having trouble connecting to the intelligence engine. Please check your connection and try again.",
+                text: "Sorry, I encountered an error. Please try again.",
                 isUser: false
             }]);
         } finally {
@@ -49,12 +49,9 @@ export function ChatInterface() {
     return (
         <div className="chat-interface">
             <div className="chat-header">
-                <div>
-                    <h3>Policy Intelligence</h3>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '2px' }}>
-                        <span style={{ width: '8px', height: '8px', background: 'var(--success)', borderRadius: '50%' }}></span>
-                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--gray-400)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>AI Engine Online</span>
-                    </div>
+                <h3>Policy Chat</h3>
+                <div style={{ fontSize: '12px', color: 'var(--gray-500)', marginTop: '2px' }}>
+                    Ask questions about your company policies
                 </div>
             </div>
 
@@ -69,9 +66,9 @@ export function ChatInterface() {
                 ))}
 
                 {loading && (
-                    <div className="chat-message bot" style={{ animation: 'pulse 1.5s infinite' }}>
-                        <div className="message-content" style={{ background: 'var(--gray-50)', color: 'var(--gray-400)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                            <span className="loader" style={{ width: '16px', height: '16px' }}></span>
+                    <div className="chat-message bot">
+                        <div className="message-content" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span className="loader"></span>
                             Thinking...
                         </div>
                     </div>

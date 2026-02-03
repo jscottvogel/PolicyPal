@@ -24,20 +24,12 @@ export function UploadInterface() {
         if (!silent) setFetching(true);
         try {
             const [result, indexResult] = await Promise.all([
-                list({
-                    path: 'public/',
-                    options: { listAll: true }
-                }),
-                // @ts-ignore
+                list({ path: 'public/', options: { listAll: true } }),
                 client.queries.getIndexedFiles()
             ]);
 
-            const s3Files = result.items;
-            const indexedSet = new Set(indexResult.data || []);
-
-            setFiles(s3Files);
-            setIndexedFiles(indexedSet);
-
+            setFiles(result.items);
+            setIndexedFiles(new Set(indexResult.data || []));
         } catch (e) {
             console.error('Error fetching data:', e);
         } finally {
@@ -50,7 +42,7 @@ export function UploadInterface() {
     }, []);
 
     const handleDelete = async (path) => {
-        if (!window.confirm(`Are you sure you want to delete ${path}?`)) return;
+        if (!window.confirm(`Delete ${path}?`)) return;
         try {
             await remove({ path });
             fetchFiles();
@@ -63,12 +55,11 @@ export function UploadInterface() {
     const handleSyncAll = async () => {
         setSyncing(true);
         try {
-            const { errors } = await client.mutations.sync();
-            if (errors) throw errors[0];
+            await client.mutations.sync();
             await fetchFiles(true);
         } catch (e) {
             console.error('Sync failed:', e);
-            alert('Failed to trigger sync.');
+            alert('Failed to sync.');
         } finally {
             setSyncing(false);
         }
@@ -77,8 +68,7 @@ export function UploadInterface() {
     const handleSyncFile = async (filePath) => {
         setSyncingFiles(prev => new Set(prev).add(filePath));
         try {
-            const { errors } = await client.mutations.sync({ filePath });
-            if (errors) throw errors[0];
+            await client.mutations.sync({ filePath });
             await fetchFiles(true);
         } catch (e) {
             console.error(`Sync failed for ${filePath}:`, e);
@@ -95,25 +85,19 @@ export function UploadInterface() {
     return (
         <div className="manage-policies-screen">
             <header className="page-header">
-                <div className="header-meta">
-                    <div>
-                        <div className="stats-badge" style={{ marginBottom: '1rem', background: 'var(--primary-light)', color: 'var(--primary)' }}>Admin Command Center</div>
-                        <h1>Knowledge Base</h1>
-                        <p className="section-help">Transform your static documents into interactive intelligence. Manage, sync, and monitor your policy repository.</p>
-                    </div>
-                </div>
-                <div className="header-actions" style={{ marginTop: '2rem' }}>
+                <h1>Policy Management</h1>
+                <p className="section-help">Upload and manage your company policy documents.</p>
+
+                <div className="header-actions">
                     <button
                         onClick={async () => {
-                            if (!window.confirm("Delete entire index? This cannot be undone.")) return;
+                            if (!window.confirm("Clear entire index?")) return;
                             setSyncing(true);
                             try {
                                 await client.mutations.sync({ clear: true });
-                                alert("Index cleared successfully.");
                                 await fetchFiles(true);
                             } catch (e) {
-                                console.error("Clear Index failed:", e);
-                                alert("Failed to clear index.");
+                                console.error("Clear failed:", e);
                             } finally {
                                 setSyncing(false);
                             }
@@ -121,7 +105,7 @@ export function UploadInterface() {
                         className="btn btn-ghost"
                         disabled={syncing}
                     >
-                        🗑 Clear Index
+                        Clear Index
                     </button>
                     <button
                         onClick={async () => {
@@ -129,103 +113,92 @@ export function UploadInterface() {
                             try {
                                 await client.queries.chat({ message: "", forceRefresh: true });
                                 setRefreshSuccess(true);
-                                setTimeout(() => setRefreshSuccess(false), 3000);
+                                setTimeout(() => setRefreshSuccess(false), 2000);
                             } catch (e) {
                                 console.error("Refresh failed:", e);
-                                alert("Failed to refresh index cache.");
                             } finally {
                                 setSyncing(false);
                             }
                         }}
-                        className={`btn btn-outline ${refreshSuccess ? 'success' : ''}`}
+                        className="btn btn-outline"
                         disabled={syncing}
                     >
-                        {refreshSuccess ? '✓ Cache Updated' : '🔄 Refresh Cache'}
+                        {refreshSuccess ? '✓ Refreshed' : 'Refresh Cache'}
                     </button>
                     <button
                         onClick={handleSyncAll}
-                        className={`btn btn-primary ${syncing ? 'syncing' : ''}`}
+                        className="btn btn-primary"
                         disabled={syncing}
-                        style={{ minWidth: '200px' }}
                     >
-                        {syncing ? <><span className="loader" style={{ width: '16px', height: '16px', marginRight: '0.5rem' }}></span> Full Sync...</> : '⚡ Sync All Policies'}
+                        {syncing ? <><span className="loader"></span> Syncing...</> : 'Sync All'}
                     </button>
                 </div>
             </header>
 
             <div className="dashboard-grid">
                 <section className="section-card">
-                    <h2 className="section-title">
-                        <span style={{ fontSize: '1.5rem' }}>📤</span> Upload Source
-                    </h2>
-                    <p className="section-help">Add new PDF policies to your repository. They will be available for indexing immediately.</p>
-                    <div style={{ background: 'var(--gray-50)', padding: '1rem', borderRadius: 'var(--r-md)', border: '1px dashed var(--border-medium)' }}>
-                        <StorageManager
-                            acceptedFileTypes={['application/pdf']}
-                            path="public/"
-                            maxFileCount={10}
-                            isResumable
-                            onUploadSuccess={() => fetchFiles(true)}
-                        />
-                    </div>
+                    <h2 className="section-title">Upload Documents</h2>
+                    <p className="section-help">Add PDF files to your knowledge base.</p>
+                    <StorageManager
+                        acceptedFileTypes={['application/pdf']}
+                        path="public/"
+                        maxFileCount={10}
+                        isResumable
+                        onUploadSuccess={() => fetchFiles(true)}
+                    />
                 </section>
 
                 <section className="section-card">
-                    <div style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <h2 className="section-title" style={{ margin: 0 }}>
-                            <span style={{ fontSize: '1.5rem' }}>📚</span> Document Inventory
-                        </h2>
-                        <div style={{ display: 'flex', gap: '0.75rem' }}>
-                            <span className="stats-badge">{files.length} Files</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                        <h2 className="section-title" style={{ margin: 0 }}>Documents</h2>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <span className="stats-badge">{files.length} files</span>
                             <span className="stats-badge">{(totalSize / 1024 / 1024).toFixed(1)} MB</span>
                         </div>
                     </div>
 
                     {fetching ? (
-                        <div className="loading-state" style={{ padding: '4rem', textAlign: 'center' }}>
-                            <span className="loader" style={{ width: '40px', height: '40px', borderColor: 'var(--primary)', borderBottomColor: 'transparent' }}></span>
-                            <p style={{ marginTop: '1rem', color: 'var(--gray-500)', fontWeight: 600 }}>Retrieving Policies...</p>
+                        <div className="loading-state">
+                            <span className="loader" style={{ width: '32px', height: '32px' }}></span>
+                            <p style={{ marginTop: '12px' }}>Loading...</p>
                         </div>
                     ) : files.length === 0 ? (
-                        <div style={{ textAlign: 'center', padding: '5rem 2rem', background: 'var(--gray-50)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border-subtle)' }}>
-                            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📦</div>
-                            <h3 style={{ marginBottom: '0.5rem' }}>No Documents Yet</h3>
-                            <p style={{ color: 'var(--gray-500)' }}>Upload your first policy to get started.</p>
+                        <div style={{ textAlign: 'center', padding: '48px', color: 'var(--gray-500)' }}>
+                            <p>No documents yet. Upload your first file to get started.</p>
                         </div>
                     ) : (
                         <div className="policy-grid">
                             {files.map((file) => (
                                 <div key={file.path} className="policy-card">
-                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
+                                    <div style={{ display: 'flex', gap: '12px' }}>
                                         <div className="policy-icon">📄</div>
-                                        <div className="policy-info" style={{ flex: 1 }}>
+                                        <div className="policy-info">
                                             <span className="policy-name">{file.path.replace('public/', '')}</span>
                                             <div className="policy-stats">
                                                 <span>{(file.size / 1024).toFixed(0)} KB</span>
-                                                <span style={{ opacity: 0.3 }}>•</span>
+                                                <span>•</span>
                                                 <div className={`status-indicator ${indexedFiles.has(file.path) ? 'ready' : 'pending'}`}>
-                                                    {indexedFiles.has(file.path) ? 'Active' : 'Pending'}
+                                                    {indexedFiles.has(file.path) ? 'Indexed' : 'Pending'}
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="action-buttons" style={{ marginTop: 'auto', display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.75rem' }}>
+                                    <div className="action-buttons">
                                         <button
                                             className="btn btn-outline"
-                                            style={{ padding: '0.6rem', fontSize: '0.8125rem', width: '100%', border: '1px solid var(--border-subtle)' }}
+                                            style={{ flex: 1, fontSize: '13px', padding: '8px' }}
                                             onClick={() => handleSyncFile(file.path)}
                                             disabled={syncing || syncingFiles.has(file.path)}
                                         >
-                                            {syncingFiles.has(file.path) ? <span className="loader" style={{ width: '12px', height: '12px' }}></span> : '⚡ Sync'}
+                                            {syncingFiles.has(file.path) ? <span className="loader"></span> : 'Sync'}
                                         </button>
                                         <button
                                             className="btn btn-ghost"
-                                            style={{ padding: '0.6rem', color: 'var(--gray-400)' }}
+                                            style={{ fontSize: '13px', padding: '8px' }}
                                             onClick={() => handleDelete(file.path)}
                                             disabled={syncing}
-                                            title="Delete permanently"
                                         >
-                                            🗑
+                                            Delete
                                         </button>
                                     </div>
                                 </div>

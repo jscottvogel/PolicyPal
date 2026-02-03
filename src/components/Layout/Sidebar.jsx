@@ -6,7 +6,7 @@ export function Sidebar({ onSignOut, activeTab, setActiveTab, isOpen, onClose })
     return (
         <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
             <div className="sidebar-header">
-                <img src="/PolicyPal.png" alt="PolicyPal Logo" className="sidebar-logo" />
+                <img src="/PolicyPal.png" alt="PolicyPal" className="sidebar-logo" />
                 <button className="mobile-close-btn" onClick={onClose}>×</button>
             </div>
 
@@ -15,16 +15,16 @@ export function Sidebar({ onSignOut, activeTab, setActiveTab, isOpen, onClose })
                     className={`nav-item ${activeTab === 'chat' ? 'active' : ''}`}
                     onClick={() => { setActiveTab('chat'); onClose?.(); }}
                 >
-                    <span className="nav-icon">✨</span>
-                    <span>Policy Intelligence</span>
+                    <span className="nav-icon">💬</span>
+                    <span>Chat</span>
                 </button>
                 {isAdmin && (
                     <button
                         className={`nav-item ${activeTab === 'upload' ? 'active' : ''}`}
                         onClick={() => { setActiveTab('upload'); onClose?.(); }}
                     >
-                        <span className="nav-icon">🛠️</span>
-                        <span>Manage Base</span>
+                        <span className="nav-icon">📁</span>
+                        <span>Manage Policies</span>
                     </button>
                 )}
             </nav>
@@ -36,11 +36,11 @@ export function Sidebar({ onSignOut, activeTab, setActiveTab, isOpen, onClose })
                     </div>
                     <div className="user-details">
                         <span className="user-name">{user?.signInDetails?.loginId || user?.username}</span>
-                        {isAdmin && <span className="user-badge">Enterprise Admin</span>}
+                        {isAdmin && <span className="user-badge">Admin</span>}
                     </div>
                 </div>
                 <button onClick={onSignOut} className="sign-out-btn">
-                    Logout
+                    Sign Out
                 </button>
             </div>
         </aside>
