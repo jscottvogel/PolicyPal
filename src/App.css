@@ -26,10 +26,11 @@
 }
 
 .sidebar-logo {
-  max-width: 160px;
-  height: 28px;
+  max-width: 120px;
+  height: 20px;
   width: auto;
   object-fit: contain;
+  opacity: 0.9;
   filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.05));
 }
 
@@ -580,8 +581,8 @@
 /* Mobile Support Fixes */
 .mobile-header {
   display: none;
-  height: 72px;
-  padding: 0 var(--s-8);
+  height: 60px;
+  padding: 0 var(--s-6);
   background-color: var(--glass-bg);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border-subtle);
@@ -590,6 +591,12 @@
   position: sticky;
   top: 0;
   z-index: 100;
+}
+
+.mobile-logo {
+  height: 18px;
+  width: auto;
+  object-fit: contain;
 }
 
 @media (max-width: 1024px) {
