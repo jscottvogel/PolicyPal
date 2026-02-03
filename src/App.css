@@ -26,11 +26,11 @@
 }
 
 .sidebar-logo {
-  max-width: 120px;
-  height: 20px;
+  max-width: 140px;
+  height: 24px;
   width: auto;
   object-fit: contain;
-  opacity: 0.9;
+  opacity: 0.95;
   filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.05));
 }
 
@@ -594,7 +594,7 @@
 }
 
 .mobile-logo {
-  height: 18px;
+  height: 20px;
   width: auto;
   object-fit: contain;
 }
