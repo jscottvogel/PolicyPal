@@ -15,9 +15,10 @@ function AppContent({ signOut }) {
     <div className="app-layout">
       <div className="mobile-header">
         <button className="mobile-menu-btn" onClick={() => setIsSidebarOpen(true)}>
-          <span className="hamburger-icon">☰</span>
+          ☰
         </button>
         <img src="/PolicyPal.png" alt="PolicyPal Logo" className="mobile-logo" />
+        <div style={{ width: '40px' }}></div> {/* Spacer for balance */}
       </div>
 
       <Sidebar
@@ -36,9 +37,24 @@ function AppContent({ signOut }) {
         {activeTab === 'chat' && <ChatInterface />}
         {activeTab === 'upload' && isAdmin && <UploadInterface />}
         {activeTab === 'upload' && !isAdmin && (
-          <div style={{ padding: '2rem', color: 'var(--status-error)' }}>
-            <h3>Access Denied</h3>
-            <p>You do not have permission to view this page.</p>
+          <div style={{
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'var(--gray-50)'
+          }}>
+            <div style={{ fontSize: '4rem', marginBottom: '1.5rem' }}>🔐</div>
+            <h2 style={{ marginBottom: '0.5rem' }}>Access Restricted</h2>
+            <p style={{ color: 'var(--gray-500)', fontWeight: 500 }}>This portal is reserved for Enterprise Administrators.</p>
+            <button
+              className="btn btn-primary"
+              style={{ marginTop: '2rem' }}
+              onClick={() => setActiveTab('chat')}
+            >
+              Return to Intelligence Portal
+            </button>
           </div>
         )}
       </main>
@@ -49,7 +65,7 @@ function AppContent({ signOut }) {
 function App() {
   return (
     <Authenticator>
-      {({ signOut, user }) => (
+      {({ signOut }) => (
         <AuthProvider>
           <AppContent signOut={signOut} />
         </AuthProvider>

@@ -15,16 +15,16 @@ export function Sidebar({ onSignOut, activeTab, setActiveTab, isOpen, onClose })
                     className={`nav-item ${activeTab === 'chat' ? 'active' : ''}`}
                     onClick={() => { setActiveTab('chat'); onClose?.(); }}
                 >
-                    <span className="nav-icon">💬</span>
-                    <span>Policy Chat</span>
+                    <span className="nav-icon">✨</span>
+                    <span>Policy Intelligence</span>
                 </button>
                 {isAdmin && (
                     <button
                         className={`nav-item ${activeTab === 'upload' ? 'active' : ''}`}
                         onClick={() => { setActiveTab('upload'); onClose?.(); }}
                     >
-                        <span className="nav-icon">⚙️</span>
-                        <span>Manage Policies</span>
+                        <span className="nav-icon">🛠️</span>
+                        <span>Manage Base</span>
                     </button>
                 )}
             </nav>
@@ -36,11 +36,11 @@ export function Sidebar({ onSignOut, activeTab, setActiveTab, isOpen, onClose })
                     </div>
                     <div className="user-details">
                         <span className="user-name">{user?.signInDetails?.loginId || user?.username}</span>
-                        {isAdmin && <span className="user-badge">Admin</span>}
+                        {isAdmin && <span className="user-badge">Enterprise Admin</span>}
                     </div>
                 </div>
                 <button onClick={onSignOut} className="sign-out-btn">
-                    Sign Out
+                    Logout
                 </button>
             </div>
         </aside>
